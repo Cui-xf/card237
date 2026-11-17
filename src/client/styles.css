@@ -559,6 +559,19 @@ button:disabled {
   margin-top: 6px;
 }
 
+.create-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.create-field {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
 .panel-heading {
   display: flex;
   align-items: flex-start;
@@ -888,5 +901,489 @@ button:disabled {
 
   .room-tile {
     padding: 14px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Lobby landscape (phones)
+   手机横屏：压缩英雄区，创建房间与加入房间并排，牌桌列表横向滚动。
+--------------------------------------------------------------------------- */
+
+.lobby-page.is-landscape {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: calc(6px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(14px, env(safe-area-inset-left, 0px));
+  padding-right: max(14px, env(safe-area-inset-right, 0px));
+}
+
+.lobby-page.is-landscape .lobby-nav {
+  flex: 0 0 auto;
+  padding-bottom: 8px;
+}
+
+.lobby-page.is-landscape .brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  font-size: 1.2rem;
+}
+
+.lobby-page.is-landscape .brand-text {
+  font-size: 0.84rem;
+}
+
+.lobby-page.is-landscape .nav-right {
+  gap: 8px;
+}
+
+.lobby-page.is-landscape .nav-pill,
+.lobby-page.is-landscape .nav-user {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 0.72rem;
+}
+
+.lobby-page.is-landscape .lobby-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.lobby-page.is-landscape .lobby-hero {
+  flex: 0 0 auto;
+  grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
+  align-items: stretch;
+  gap: 14px;
+}
+
+.lobby-page.is-landscape .hero-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-top: 0;
+}
+
+.lobby-page.is-landscape .hero-copy > .eyebrow,
+.lobby-page.is-landscape .hero-sub,
+.lobby-page.is-landscape .feature-chips,
+.lobby-page.is-landscape .hero-deck,
+.lobby-page.is-landscape .create-panel .eyebrow,
+.lobby-page.is-landscape .section-head .eyebrow,
+.lobby-page.is-landscape .lobby-footer,
+.lobby-page.is-landscape .join-panel .form-hint,
+.lobby-page.is-landscape .create-panel .form-hint {
+  display: none;
+}
+
+.lobby-page.is-landscape .hero-title {
+  margin: 0 0 8px;
+  font-size: clamp(1.3rem, 3.6vw, 1.8rem);
+  line-height: 1.12;
+}
+
+.lobby-page.is-landscape .hero-title br {
+  display: none;
+}
+
+.lobby-page.is-landscape .join-panel {
+  max-width: none;
+  margin-top: auto;
+  padding: 12px;
+  border-radius: 16px;
+}
+
+.lobby-page.is-landscape .join-panel .field-label {
+  margin-bottom: 5px;
+  font-size: 0.68rem;
+}
+
+.lobby-page.is-landscape .join-row {
+  flex-direction: row;
+  gap: 8px;
+}
+
+.lobby-page.is-landscape .join-row .field,
+.lobby-page.is-landscape .join-row .btn {
+  min-height: 40px;
+}
+
+.lobby-page.is-landscape .join-row .btn {
+  width: auto;
+}
+
+.lobby-page.is-landscape .join-row .code-input {
+  font-size: 0.95rem;
+}
+
+.lobby-page.is-landscape .hero-side {
+  gap: 0;
+  max-width: none;
+}
+
+.lobby-page.is-landscape .create-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+}
+
+.lobby-page.is-landscape .create-panel .panel-heading {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.lobby-page.is-landscape .create-panel .panel-title {
+  font-size: 1rem;
+}
+
+.lobby-page.is-landscape .create-panel .panel-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+}
+
+.lobby-page.is-landscape .create-panel .field-label {
+  margin: 0;
+  font-size: 0.68rem;
+}
+
+.lobby-page.is-landscape .create-panel .field {
+  min-height: 38px;
+  border-radius: 11px;
+}
+
+.lobby-page.is-landscape .create-panel .btn {
+  min-height: 38px;
+  margin-top: 2px;
+}
+
+.lobby-page.is-landscape .create-fields {
+  flex-direction: row;
+  gap: 10px;
+}
+
+.lobby-page.is-landscape .create-field {
+  flex: 1 1 0;
+  gap: 4px;
+}
+
+.lobby-page.is-landscape .rooms-section {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 10px;
+}
+
+.lobby-page.is-landscape .section-head {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.lobby-page.is-landscape .section-title {
+  font-size: 1.02rem;
+}
+
+.lobby-page.is-landscape .section-actions {
+  gap: 8px;
+}
+
+.lobby-page.is-landscape .room-count {
+  font-size: 0.7rem;
+}
+
+.lobby-page.is-landscape .section-actions .btn {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 0.74rem;
+}
+
+.lobby-page.is-landscape .rooms-grid {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+  scroll-snap-type: x proximity;
+}
+
+.lobby-page.is-landscape .room-tile {
+  flex: 0 0 238px;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  scroll-snap-align: start;
+}
+
+.lobby-page.is-landscape .room-tile-name {
+  margin-bottom: 2px;
+  font-size: 0.92rem;
+}
+
+.lobby-page.is-landscape .room-code {
+  font-size: 0.7rem;
+}
+
+.lobby-page.is-landscape .room-tile-meta {
+  font-size: 0.68rem;
+}
+
+.lobby-page.is-landscape .room-tile-foot .btn {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 0.74rem;
+}
+
+.lobby-page.is-landscape .room-skeleton {
+  min-height: 92px;
+  flex-basis: 238px;
+}
+
+.lobby-page.is-landscape .state-card {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.lobby-page.is-landscape .state-card h3 {
+  font-size: 1rem;
+}
+
+.lobby-page.is-landscape .state-card p {
+  max-width: none;
+  font-size: 0.76rem;
+}
+
+.lobby-page.is-landscape .state-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  font-size: 1.2rem;
+}
+
+.lobby-page.is-landscape .inline-error {
+  margin-top: 8px;
+}
+
+/* Phaser 牌桌容器 */
+.phaser-table {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  height: clamp(320px, calc(100dvh - 380px), 520px);
+  min-height: 240px;
+  overflow: hidden;
+}
+
+.room-page.is-landscape .phaser-table {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+}
+
+.phaser-table canvas {
+  display: block;
+}
+
+.phaser-table:focus-visible {
+  outline: 2px solid var(--color-gold-400);
+  outline-offset: 2px;
+}
+
+.phaser-table:focus-visible canvas {
+  outline: none;
+}
+
+/* 等待开局面板（不依赖旧 React 牌桌结构） */
+.waiting-panel {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 2.4vw, 22px);
+  min-height: clamp(320px, calc(100dvh - 380px), 520px);
+  padding: clamp(18px, 3vw, 30px);
+  border: 1px solid rgba(216, 166, 76, 0.18);
+  border-radius: 26px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(27, 92, 60, 0.5), transparent 62%),
+    linear-gradient(160deg, rgba(17, 46, 30, 0.96), rgba(7, 20, 14, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 30px 70px -50px #000;
+}
+
+.waiting-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.waiting-eyebrow {
+  margin: 0;
+  color: rgba(239, 233, 218, 0.45);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+}
+
+.waiting-code {
+  margin: 2px 0 0;
+  color: var(--color-gold-300);
+  font-family: var(--font-mono);
+  font-size: clamp(1.15rem, 2.2vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.waiting-count {
+  padding: 4px 10px;
+  border: 1px solid rgba(216, 166, 76, 0.25);
+  border-radius: 999px;
+  color: var(--color-cream);
+  font-size: 0.75rem;
+}
+
+.waiting-seat-grid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(var(--seat-count, 3), minmax(0, 1fr));
+  gap: 12px;
+  align-content: center;
+}
+
+.waiting-seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.waiting-seat.is-self {
+  border-color: rgba(216, 166, 76, 0.55);
+  background: rgba(216, 166, 76, 0.08);
+  box-shadow: 0 0 0 1px rgba(216, 166, 76, 0.15) inset;
+}
+
+.waiting-seat.is-empty {
+  border-style: dashed;
+  color: rgba(239, 233, 218, 0.4);
+  background: transparent;
+}
+
+.waiting-avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(216, 166, 76, 0.35);
+  border-radius: 50%;
+  background: rgba(9, 26, 18, 0.85);
+  color: var(--color-ivory, #f7f3e8);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.waiting-seat.is-empty .waiting-avatar {
+  border-style: dashed;
+  color: rgba(239, 233, 218, 0.35);
+}
+
+.waiting-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--color-cream);
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.waiting-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.waiting-tag {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(239, 233, 218, 0.62);
+  font-size: 0.66rem;
+}
+
+.waiting-tag.is-ready {
+  background: rgba(52, 211, 153, 0.16);
+  color: #6ee7b7;
+}
+
+.waiting-tag.is-offline {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+}
+
+.waiting-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.waiting-hint {
+  margin: 0 auto 0 0;
+  color: rgba(239, 233, 218, 0.55);
+  font-size: 0.8rem;
+}
+
+.room-page.is-landscape .waiting-panel {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 18px;
+  gap: 10px;
+}
+
+.room-page.is-landscape .waiting-avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 0.85rem;
+}
+
+.room-page.is-landscape .waiting-seat {
+  gap: 5px;
+  padding: 10px 8px;
+}
+
+.room-page.is-landscape .waiting-hint {
+  font-size: 0.72rem;
+}
+
+.room-page.is-landscape .waiting-actions .btn {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 560px) {
+  .waiting-seat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

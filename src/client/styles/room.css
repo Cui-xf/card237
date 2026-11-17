@@ -119,412 +119,31 @@
    Felt table
 --------------------------------------------------------------------------- */
 
-.felt-wrap {
-  padding: clamp(6px, 1.2vw, 14px);
-}
+/* ---------------------------------------------------------------------------
+   Quick declare (甩 3)
+--------------------------------------------------------------------------- */
 
-.felt-table {
-  position: relative;
-  min-height: clamp(340px, 44vw, 480px);
-  overflow: hidden;
-  border: 1px solid rgba(232, 187, 99, 0.24);
-  border-radius: 46% / 42%;
-  background:
-    radial-gradient(ellipse at 50% 22%, rgba(255, 255, 255, 0.075), transparent 52%),
-    radial-gradient(
-      ellipse at 50% 52%,
-      #175136 0%,
-      #103c27 42%,
-      #0b2a1b 72%,
-      #081c12 100%
-    );
-  box-shadow:
-    inset 0 0 90px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 36px 90px -40px rgba(0, 0, 0, 0.95);
-}
+/* 悬浮在手牌上方的快捷甩牌条：宽度自适应、居中，不占满整行。 */
 
-.felt-table::before {
-  content: "";
-  position: absolute;
-  inset: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.055);
-  border-radius: inherit;
-  pointer-events: none;
-}
+/* 右侧座位：牌面贴在头像左侧，朝牌桌中央延伸。 */
 
-.felt-table::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background-image: repeating-linear-gradient(
-    45deg,
-    rgba(255, 255, 255, 0.018) 0 2px,
-    transparent 2px 6px
-  );
-  opacity: 0.7;
-  pointer-events: none;
-}
+/* 4 人牌桌：第 4 家坐在牌桌上方，牌面挂在头像下方。 */
 
-.table-topline {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-
-.table-label {
-  padding: 4px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.18);
-  color: rgba(224, 233, 227, 0.55);
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
-}
-
-.bottom-cards {
-  position: absolute;
-  top: 46px;
-  left: 50%;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transform: translateX(-50%);
-}
-
-.bottom-cards-label {
-  padding: 3px 7px;
-  border: 1px solid rgba(232, 187, 99, 0.18);
-  border-radius: 999px;
-  background: rgba(232, 187, 99, 0.07);
-  color: var(--color-gold-300);
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  white-space: nowrap;
-}
-
-.bottom-cards-placeholder {
-  color: rgba(224, 233, 227, 0.35);
-  font-size: 0.68rem;
-}
-
-.table-center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 100px clamp(120px, 18%, 220px) 76px;
-  text-align: center;
-  pointer-events: none;
-}
-
-.seat-anchor {
-  position: absolute;
-  top: 50%;
-  z-index: 10;
-}
-
-.seat-anchor--left {
-  left: clamp(8px, 1.6vw, 22px);
-  transform: translateY(-50%);
-}
-
-.seat-anchor--right {
-  right: clamp(8px, 1.6vw, 22px);
-  transform: translateY(-50%);
-}
+/* 自己打出的牌浮在牌桌左下角，靠近下方自己的头像。
+   桌面牌桌是椭圆（border-radius + overflow:hidden），角上会被裁掉，
+   所以往里收一些，保证牌面始终可见。 */
 
 /* ---------------------------------------------------------------------------
    Seats
 --------------------------------------------------------------------------- */
 
-.seat-panel {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 176px;
-  max-width: 230px;
-  padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(7, 22, 15, 0.88), rgba(4, 14, 9, 0.86));
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 18px 34px -22px rgba(0, 0, 0, 0.9);
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    opacity 0.2s ease;
-}
+/* 分数贴在头像旁的名字行里。 */
 
-.seat-panel--self {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 100%;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.035);
-}
-
-.seat-panel--empty {
-  justify-content: center;
-  min-width: 160px;
-  border-style: dashed;
-  color: rgba(224, 233, 227, 0.42);
-}
-
-.seat-panel--self.seat-panel--empty {
-  min-width: 0;
-}
-
-.seat-turn {
-  border-color: rgba(232, 187, 99, 0.65);
-  box-shadow:
-    0 0 0 3px rgba(232, 187, 99, 0.1),
-    0 0 30px -8px rgba(232, 187, 99, 0.5);
-}
-
-.seat-offline {
-  opacity: 0.6;
-}
-
-.seat-avatar {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 auto;
-  border: 2px solid rgba(255, 255, 255, 0.14);
-  border-radius: 50%;
-  color: #fff;
-  font-size: 1rem;
-  font-weight: 800;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-.avatar-seat-0 {
-  background: radial-gradient(circle at 30% 20%, #b8862f, #4d320c);
-}
-
-.avatar-seat-1 {
-  background: radial-gradient(circle at 30% 20%, #1f7a5a, #0b3325);
-}
-
-.avatar-seat-2 {
-  background: radial-gradient(circle at 30% 20%, #8d3f52, #3a1420);
-}
-
-.seat-panel > .presence-dot {
-  position: absolute;
-  bottom: 10px;
-  left: 48px;
-  width: 10px;
-  height: 10px;
-  border: 2px solid #0a1a12;
-}
-
-.presence-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-}
-
-.presence-dot.is-online {
-  background: #34d399;
-}
-
-.presence-dot.is-offline {
-  background: #fbbf24;
-}
-
-.seat-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.seat-name-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.seat-name {
-  overflow: hidden;
-  font-size: 0.9rem;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.seat-crown {
-  flex: 0 0 auto;
-  color: var(--color-gold-300);
-}
-
-.seat-you {
-  flex: 0 0 auto;
-  padding: 1px 6px;
-  border: 1px solid rgba(232, 187, 99, 0.2);
-  border-radius: 999px;
-  background: rgba(232, 187, 99, 0.14);
-  color: var(--color-gold-200);
-  font-size: 0.62rem;
-}
-
-.seat-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 2px;
-  color: rgba(224, 233, 227, 0.58);
-  font-size: 0.7rem;
-  white-space: nowrap;
-}
-
-.turn-chip {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: rgba(232, 187, 99, 0.14);
-  color: var(--color-gold-200);
-  font-size: 0.62rem;
-}
-
-.seat-card-count {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--color-gold-200);
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.mini-card-back {
-  display: inline-block;
-  width: 16px;
-  height: 22px;
-  border: 1px solid rgba(232, 187, 99, 0.35);
-  border-radius: 3px;
-  background: repeating-linear-gradient(45deg, #1c4d34 0 3px, #123624 3px 6px);
-}
-
-.seat-empty-plus {
-  color: rgba(232, 187, 99, 0.5);
-  font-size: 1.2rem;
-}
-
-.seat-empty-text {
-  font-size: 0.8rem;
-}
-
-.seat-empty-index {
-  opacity: 0.6;
-  font-size: 0.62rem;
-}
+/* 每家出的牌：紧贴各自头像显示。 */
 
 /* ---------------------------------------------------------------------------
    Play area & waiting
 --------------------------------------------------------------------------- */
-
-.play-zone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  max-width: 100%;
-}
-
-.play-caption {
-  margin: 0;
-  color: rgba(224, 233, 227, 0.65);
-  font-size: 0.76rem;
-}
-
-.play-hint {
-  margin: 0;
-  color: rgba(224, 233, 227, 0.58);
-  font-size: 0.95rem;
-}
-
-.play-cards {
-  max-width: 100%;
-  overflow-x: auto;
-  padding: 6px 2px 8px;
-}
-
-.waiting-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.waiting-icon {
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border: 1px solid rgba(232, 187, 99, 0.2);
-  border-radius: 15px;
-  background: rgba(232, 187, 99, 0.08);
-  color: var(--color-gold-300);
-}
-
-.waiting-title {
-  margin: 0;
-  font-size: 1.15rem;
-  font-weight: 700;
-}
-
-.waiting-copy {
-  margin: 0;
-  color: rgba(224, 233, 227, 0.55);
-  font-size: 0.78rem;
-}
-
-.turn-meter {
-  width: min(240px, 100%);
-  pointer-events: none;
-}
-
-.turn-meter-head {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 3px;
-  color: rgba(224, 233, 227, 0.5);
-  font-size: 0.65rem;
-}
-
-.turn-meter-track {
-  height: 4px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.turn-meter-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #f3d28f, #d49b3a);
-  transition: width 0.9s linear;
-}
-
-.turn-meter.is-urgent .turn-meter-fill {
-  background: linear-gradient(90deg, #fca5a5, #ef4444);
-}
 
 /* ---------------------------------------------------------------------------
    Cards
@@ -536,16 +155,6 @@
   --card-h: 92px;
   width: var(--card-w);
   height: var(--card-h);
-}
-
-.card-xs {
-  --card-w: 34px;
-  --card-h: 48px;
-}
-
-.card-sm {
-  --card-w: 42px;
-  --card-h: 60px;
 }
 
 .card-lg {
@@ -615,20 +224,6 @@
   pointer-events: none;
 }
 
-.card-xs {
-  padding: 3px 4px;
-  border-radius: 5px;
-}
-
-.card-xs .card-center {
-  opacity: 0.75;
-  font-size: calc(var(--card-w) * 0.42);
-}
-
-.card-xs .card-suit {
-  font-size: calc(var(--card-w) * 0.22);
-}
-
 .card-back {
   position: relative;
   display: inline-block;
@@ -651,163 +246,13 @@
   font-size: calc(var(--card-w) * 0.34);
 }
 
-.static-card-row {
-  display: flex;
-  align-items: flex-end;
-  width: max-content;
-  max-width: 100%;
-  margin-inline: auto;
-  padding: 4px 0;
-}
+/* 悬停只做轻微提亮，不再抬起，保证手牌只有「放下 / 提起」两种高度。 */
 
-.static-card-slot {
-  transform: rotate(var(--tilt, 0deg));
-  transform-origin: 50% 100%;
-  transition: transform 0.16s ease;
-}
-
-.card-button {
-  cursor: pointer;
-  transition:
-    transform 0.16s ease,
-    filter 0.16s ease,
-    box-shadow 0.16s ease;
-}
-
-.card-button:hover {
-  transform: translateY(-8px);
-  filter: brightness(1.03);
-}
-
-.card-button.is-selected {
-  transform: translateY(-18px);
-  outline: 2px solid rgba(232, 187, 99, 0.95);
-  outline-offset: 2px;
-  filter: drop-shadow(0 0 12px rgba(232, 187, 99, 0.55));
-}
+/* 选中的牌只抬起，不再额外高亮。 */
 
 /* ---------------------------------------------------------------------------
    Hand & self dock
 --------------------------------------------------------------------------- */
-
-.self-dock {
-  margin-top: 10px;
-  padding: clamp(12px, 2vw, 18px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(13, 33, 23, 0.72), rgba(6, 18, 12, 0.8));
-  box-shadow: 0 24px 60px -40px rgba(0, 0, 0, 0.9);
-}
-
-.self-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
-.role-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  padding: 0 10px;
-  border: 1px solid rgba(52, 211, 153, 0.2);
-  border-radius: 999px;
-  background: rgba(52, 211, 153, 0.09);
-  color: #9ad8b6;
-  font-size: 0.68rem;
-  font-weight: 700;
-}
-
-.role-chip--landlord {
-  border-color: rgba(232, 187, 99, 0.28);
-  background: rgba(232, 187, 99, 0.12);
-  color: var(--color-gold-200);
-}
-
-.selected-counter {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  margin-left: auto;
-  padding: 0 10px;
-  border: 1px solid rgba(232, 187, 99, 0.16);
-  border-radius: 999px;
-  background: rgba(232, 187, 99, 0.08);
-  color: var(--color-gold-200);
-  font-size: 0.72rem;
-}
-
-.hand {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  width: 100%;
-  min-height: calc(var(--hand-card-h, 92px) + 26px);
-  padding: 16px 0 6px;
-}
-
-.hand-slot {
-  flex: 0 0 auto;
-}
-
-.hand-slot:has(.card-button.is-selected) {
-  z-index: 100 !important;
-}
-
-.hand-slot .card-face,
-.hand-slot .card-back {
-  --card-w: var(--hand-card-w, 64px);
-  --card-h: var(--hand-card-h, 92px);
-}
-
-.hand-slot .card-face {
-  animation: deal-in 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-  animation-delay: calc(var(--i) * 16ms);
-}
-
-.hand-empty {
-  color: rgba(224, 233, 227, 0.5);
-  font-size: 0.9rem;
-}
-
-.hand-waiting {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 120px;
-  color: rgba(224, 233, 227, 0.5);
-  font-size: 0.85rem;
-}
-
-.hand-waiting-cards {
-  color: rgba(232, 187, 99, 0.35);
-  font-size: 1.4rem;
-  letter-spacing: 0.5em;
-}
-
-.action-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 48px;
-  margin-top: 6px;
-}
-
-.action-note {
-  margin: 0;
-  color: rgba(224, 233, 227, 0.55);
-  font-size: 0.76rem;
-}
-
-.action-note--strong {
-  color: rgba(243, 210, 143, 0.82);
-  font-size: 0.86rem;
-}
 
 /* ---------------------------------------------------------------------------
    Sidebar & chat
@@ -889,12 +334,6 @@
   border-radius: 999px;
   color: rgba(224, 233, 227, 0.4);
   font-size: 0.6rem;
-}
-
-.sidebar-player .presence-dot {
-  width: 7px;
-  height: 7px;
-  border: 0;
 }
 
 .sidebar-status-line {
@@ -1049,6 +488,24 @@
   box-shadow: 0 0 8px rgba(232, 187, 99, 0.6);
 }
 
+.log-deal .log-dot {
+  background: #7dd3fc;
+}
+
+.log-trump .log-dot {
+  background: #f472b6;
+  box-shadow: 0 0 8px rgba(244, 114, 182, 0.5);
+}
+
+.log-trick .log-dot {
+  background: #c4b5fd;
+}
+
+.log-score .log-dot {
+  background: #fbbf24;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+}
+
 .log-text {
   flex: 1;
 }
@@ -1057,63 +514,7 @@
    Winner overlay
 --------------------------------------------------------------------------- */
 
-.winner-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 30;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  border-radius: inherit;
-  background: rgba(3, 10, 7, 0.62);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-}
-
-.winner-card {
-  width: min(380px, 100%);
-  padding: 26px 22px;
-  border-radius: 24px;
-  text-align: center;
-  animation: fade-up 0.28s ease-out;
-}
-
-.winner-trophy {
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 12px;
-  border: 1px solid rgba(232, 187, 99, 0.3);
-  border-radius: 18px;
-  background: linear-gradient(145deg, rgba(232, 187, 99, 0.22), rgba(232, 187, 99, 0.06));
-  color: var(--color-gold-200);
-  box-shadow: 0 12px 30px -16px rgba(232, 187, 99, 0.5);
-}
-
-.winner-title {
-  margin: 0 0 6px;
-  font-size: 1.5rem;
-  letter-spacing: -0.02em;
-}
-
-.winner-copy {
-  margin: 0 0 18px;
-  color: rgba(224, 233, 227, 0.62);
-  font-size: 0.85rem;
-}
-
-.winner-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.winner-wait {
-  color: rgba(224, 233, 227, 0.6);
-  font-size: 0.8rem;
-}
+/* 结算面板固定在视口上：矮窗口（手机横屏）里牌桌装不下整张结算卡，避免被裁切。 */
 
 /* ---------------------------------------------------------------------------
    Dialogs, toast, centered screens
@@ -1314,6 +715,12 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Shuaiz3 board
+--------------------------------------------------------------------------- */
+
+/* 4 人牌桌把主牌/庄家信息移到左上角，给上方座位让出位置。 */
+
+/* ---------------------------------------------------------------------------
    Room responsive
 --------------------------------------------------------------------------- */
 
@@ -1336,77 +743,8 @@
 }
 
 @media (max-width: 720px) {
-  .felt-table {
-    min-height: 340px;
-    border-radius: 28px;
-  }
 
-  .table-topline {
-    display: none;
-  }
-
-  .bottom-cards {
-    top: 12px;
-    left: 12px;
-    transform: none;
-  }
-
-  .seat-anchor {
-    top: 86px;
-    transform: none;
-  }
-
-  .seat-anchor--left {
-    left: 10px;
-  }
-
-  .seat-anchor--right {
-    right: 10px;
-  }
-
-  .seat-panel {
-    min-width: 0;
-    max-width: 43vw;
-    padding: 7px 8px;
-    border-radius: 13px;
-  }
-
-  .seat-avatar {
-    width: 36px;
-    height: 36px;
-    font-size: 0.8rem;
-  }
-
-  .seat-panel > .presence-dot {
-    bottom: 9px;
-    left: 36px;
-  }
-
-  .seat-name {
-    font-size: 0.8rem;
-  }
-
-  .seat-meta {
-    gap: 5px;
-    font-size: 0.64rem;
-  }
-
-  .seat-card-count {
-    display: none;
-  }
-
-  .table-center {
-    padding: 156px 10px 62px;
-  }
-
-  .play-cards {
-    max-width: calc(100vw - 70px);
-  }
-
-  .self-dock {
-    padding: 10px;
-    border-radius: 18px;
-  }
+  /* 4 人牌桌上的第 4 家固定在顶部居中，不参与左右两家的纵向对齐。 */
 
   .room-topbar-inner {
     gap: 10px;
@@ -1426,35 +764,290 @@
     top: calc(64px + env(safe-area-inset-top, 0px));
   }
 
-  .action-note {
-    width: 100%;
-    text-align: center;
-  }
 }
 
 @media (max-width: 480px) {
-  .felt-table {
-    min-height: 320px;
-  }
-
-  .bottom-cards .card-face {
-    --card-w: 36px;
-    --card-h: 51px;
-  }
-
-  .self-head {
-    gap: 7px;
-  }
-
-  .action-bar {
-    gap: 8px;
-  }
 
   .chat-send {
     width: 44px;
     min-width: 44px;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Sidebar drawer (phone landscape)
+--------------------------------------------------------------------------- */
+
+.sidebar-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+}
+
+.sidebar-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  border: 0;
+  background: rgba(2, 8, 5, 0.55);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  animation: fade-in 0.18s ease-out;
+  cursor: pointer;
+}
+
+.room-page.is-landscape .room-sidebar.is-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  width: min(340px, 88vw);
+  max-height: none;
+  padding: 14px;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  padding-right: max(14px, env(safe-area-inset-right, 0px));
+  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  border-radius: 18px 0 0 18px;
+  visibility: hidden;
+  transform: translateX(calc(100% + 18px));
+  transition:
+    transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0.24s;
+  will-change: transform;
+}
+
+.room-page.is-landscape .room-sidebar.is-drawer.is-open {
+  visibility: visible;
+  transform: translateX(0);
+}
+
+/* 抽屉里把玩家列表压成一行，给聊天输入框留出空间。 */
+.room-page.is-landscape .room-sidebar.is-drawer .sidebar-players {
+  flex-direction: row;
+  gap: 6px;
+}
+
+.room-page.is-landscape .room-sidebar.is-drawer .sidebar-player {
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 5px;
+  padding: 4px 6px;
+  font-size: 0.72rem;
+}
+
+.room-page.is-landscape .room-sidebar.is-drawer .mini-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  font-size: 0.58rem;
+}
+
+.room-page.is-landscape .room-sidebar.is-drawer .sidebar-player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-page.is-landscape .room-sidebar.is-drawer .chat-list {
+  max-height: none;
+  padding: 8px 2px;
+}
+
+.room-page.is-landscape .room-sidebar.is-drawer .chat-tab {
+  min-height: 34px;
+}
+
+.room-page.is-landscape .room-sidebar.is-drawer .chat-input,
+.room-page.is-landscape .room-sidebar.is-drawer .chat-send {
+  min-height: 38px;
+  height: 38px;
+}
+
+/* ---------------------------------------------------------------------------
+   Rotate hint (phone portrait)
+--------------------------------------------------------------------------- */
+
+.rotate-hint {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: max(20px, env(safe-area-inset-top, 0px)) 20px
+    max(20px, env(safe-area-inset-bottom, 0px));
+  background: rgba(3, 10, 7, 0.94);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  animation: fade-in 0.2s ease-out;
+}
+
+.rotate-hint .rotate-hint-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(380px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 24px 22px 20px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #142a20 0%, #0a1a13 100%);
+  text-align: center;
+  animation: fade-up 0.24s ease-out;
+}
+
+.rotate-phone {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 2px;
+  border: 1px solid rgba(232, 187, 99, 0.24);
+  border-radius: 18px;
+  background: rgba(232, 187, 99, 0.08);
+  color: var(--color-gold-300);
+}
+
+.rotate-phone > svg:first-child {
+  animation: phone-tilt 3.2s ease-in-out infinite;
+}
+
+.rotate-phone-arrow {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  box-sizing: content-box;
+  padding: 3px;
+  border-radius: 50%;
+  background: #14281c;
+  color: var(--color-gold-200);
+}
+
+.rotate-title {
+  margin: 2px 0 0;
+  font-size: 1.28rem;
+  letter-spacing: -0.02em;
+}
+
+.rotate-copy {
+  max-width: 30ch;
+  margin: 0;
+  color: rgba(224, 233, 227, 0.66);
+  font-size: 0.84rem;
+  line-height: 1.7;
+}
+
+.rotate-note {
+  margin: 0;
+  color: var(--color-gold-200);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.rotate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.rotate-actions .btn {
+  flex: 1 1 140px;
+}
+
+/* ---------------------------------------------------------------------------
+   Phone landscape table
+--------------------------------------------------------------------------- */
+
+.room-page.is-landscape {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+.room-page.is-landscape .page-shell {
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
+}
+
+.room-page.is-landscape .room-topbar-inner {
+  gap: 10px;
+  min-height: 48px;
+}
+
+.room-page.is-landscape .room-heading-title {
+  font-size: 0.92rem;
+}
+
+.room-page.is-landscape .room-heading-meta {
+  gap: 8px;
+  margin-top: 0;
+}
+
+.room-page.is-landscape .room-code--small {
+  padding: 2px 7px;
+  font-size: 0.6rem;
+}
+
+.room-page.is-landscape .conn-status {
+  font-size: 0.62rem;
+}
+
+.room-page.is-landscape .icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+}
+
+.room-page.is-landscape .topbar-btn {
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 0.8rem;
+}
+
+.room-page.is-landscape .reconnect-banner {
+  position: static;
+  padding: 4px 12px;
+  font-size: 0.7rem;
+}
+
+.room-page.is-landscape .room-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-block: 4px;
+}
+
+.room-page.is-landscape .room-grid {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  height: 100%;
+}
+
+.room-page.is-landscape .table-column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+  min-height: 0;
+}
+
+/* 4 人牌桌（横屏）：三家统一压到顶边，中央完整留给牌局内容。 */
 
 /* ---------------------------------------------------------------------------
    Motion
@@ -1493,11 +1086,9 @@
 
 @keyframes deal-in {
   from {
-    opacity: 0;
-    transform: translateY(18px) scale(0.94);
+    transform: translateY(12px) scale(0.97);
   }
   to {
-    opacity: 1;
     transform: translateY(0) scale(1);
   }
 }
@@ -1533,6 +1124,20 @@
   }
 }
 
+@keyframes phone-tilt {
+  0%,
+  18% {
+    transform: rotate(0deg);
+  }
+  38%,
+  82% {
+    transform: rotate(90deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1542,4 +1147,35 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* 侧栏玩家列表使用的在线状态点与头像底色 */
+.presence-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.presence-dot.is-online {
+  background: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.14);
+}
+
+.presence-dot.is-offline {
+  background: #f59e0b;
+  opacity: 0.55;
+}
+
+.mini-avatar.avatar-seat-0 {
+  background: linear-gradient(145deg, #2f7f58, #164a2f);
+}
+.mini-avatar.avatar-seat-1 {
+  background: linear-gradient(145deg, #4c7f9a, #22485c);
+}
+.mini-avatar.avatar-seat-2 {
+  background: linear-gradient(145deg, #8a6a3a, #4d3518);
+}
+.mini-avatar.avatar-seat-3 {
+  background: linear-gradient(145deg, #7a4a5c, #42242f);
 }

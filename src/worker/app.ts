@@ -13,7 +13,9 @@ app.get('/api/rooms', (c) => {
 });
 
 app.post('/api/rooms', async (c) => {
-  const body = (await c.req.json().catch(() => null)) as { name?: unknown } | null;
+  const body = (await c.req.json().catch(() => null)) as
+    | { name?: unknown; ruleId?: unknown }
+    | null;
   const name = sanitizeRoomName(body?.name);
 
   const lobby = c.env.LOBBY.get(c.env.LOBBY.idFromName('global'));
@@ -21,7 +23,7 @@ app.post('/api/rooms', async (c) => {
     new Request('https://lobby/rooms', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, ruleId: body?.ruleId }),
     }),
   );
   if (!createResponse.ok) {
@@ -42,7 +44,7 @@ app.post('/api/rooms', async (c) => {
     new Request('https://room/internal/init', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id: meta.id, name: meta.name }),
+      body: JSON.stringify({ id: meta.id, name: meta.name, ruleId: meta.ruleId }),
     }),
   );
   if (!initResponse.ok) {

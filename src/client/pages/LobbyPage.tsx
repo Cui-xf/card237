@@ -13,11 +13,14 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Card } from '../../shared/cards';
 import type { RoomMeta } from '../../shared/protocol';
 import { statusLabel } from '../../shared/protocol';
-import { PlayingCard } from '../components/PlayingCard';
+import { AVAILABLE_RULES, DEFAULT_RULE_ID, RULE_META } from '../../shared/rules';
+import type { RuleId } from '../../shared/rules/types';
+import { LobbyCard } from '../components/lobby/LobbyCard';
 import { Logo } from '../components/Logo';
 import type { ToastTone } from '../components/Toast';
 import { createRoom, fetchRoom, fetchRooms } from '../lib/api';
 import { goToRoom } from '../lib/hashRoute';
+import { usePhoneLayout } from '../lib/usePhoneLayout';
 
 interface LobbyPageProps {
   playerName: string;
@@ -55,12 +58,14 @@ function joinLabel(room: RoomMeta): string {
 }
 
 export function LobbyPage({ playerName, onPlayerNameChange, notify }: LobbyPageProps) {
+  const { isLandscape } = usePhoneLayout();
   const [rooms, setRooms] = useState<RoomMeta[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   const [roomName, setRoomName] = useState('');
+  const [ruleId, setRuleId] = useState<RuleId>(DEFAULT_RULE_ID);
   const [joinCode, setJoinCode] = useState('');
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
@@ -112,7 +117,10 @@ export function LobbyPage({ playerName, onPlayerNameChange, notify }: LobbyPageP
 
     setCreating(true);
     try {
-      const { room } = await createRoom(roomName.trim() || `${nickname} 的牌桌`);
+      const { room } = await createRoom(
+        roomName.trim() || `${nickname} 的牌桌`,
+        ruleId,
+      );
       goToRoom(room.id);
     } catch (error) {
       notify(error instanceof Error ? error.message : '创建房间失败', 'error');
@@ -144,7 +152,7 @@ export function LobbyPage({ playerName, onPlayerNameChange, notify }: LobbyPageP
   const retryList = () => setRefreshNonce((value) => value + 1);
 
   return (
-    <div className="page-shell lobby-page">
+    <div className={`page-shell lobby-page${isLandscape ? ' is-landscape' : ''}`}>
       <header className="lobby-nav">
         <Logo />
         <div className="nav-right">
@@ -174,7 +182,8 @@ export function LobbyPage({ playerName, onPlayerNameChange, notify }: LobbyPageP
 
             <div className="feature-chips">
               <span>
-                <Users size={14} aria-hidden="true" />3 人对战
+                <Users size={14} aria-hidden="true" />
+                多人对战
               </span>
               <span>
                 <Zap size={14} aria-hidden="true" />
@@ -224,13 +233,13 @@ export function LobbyPage({ playerName, onPlayerNameChange, notify }: LobbyPageP
             <div className="hero-deck" aria-hidden="true">
               <div className="hero-orbit" />
               <div className="hero-card hero-card--back">
-                <PlayingCard card={HERO_CARDS[0]} size="lg" faceDown />
+                <LobbyCard card={HERO_CARDS[0]} faceDown />
               </div>
               <div className="hero-card hero-card--left">
-                <PlayingCard card={HERO_CARDS[1]} size="lg" />
+                <LobbyCard card={HERO_CARDS[1]} />
               </div>
               <div className="hero-card hero-card--right">
-                <PlayingCard card={HERO_CARDS[2]} size="lg" />
+                <LobbyCard card={HERO_CARDS[2]} />
               </div>
             </div>
 
@@ -245,31 +254,57 @@ export function LobbyPage({ playerName, onPlayerNameChange, notify }: LobbyPageP
                 </span>
               </div>
 
-              <label className="field-label" htmlFor="nickname">
-                你的昵称
-              </label>
-              <input
-                id="nickname"
-                ref={nicknameRef}
-                className="field"
-                value={playerName}
-                onChange={(event) => onPlayerNameChange(event.target.value.slice(0, 12))}
-                placeholder="例如：阿七"
-                maxLength={12}
-                autoComplete="nickname"
-              />
+              <div className="create-fields">
+                <div className="create-field">
+                  <label className="field-label" htmlFor="nickname">
+                    你的昵称
+                  </label>
+                  <input
+                    id="nickname"
+                    ref={nicknameRef}
+                    className="field"
+                    value={playerName}
+                    onChange={(event) =>
+                      onPlayerNameChange(event.target.value.slice(0, 12))
+                    }
+                    placeholder="例如：阿七"
+                    maxLength={12}
+                    autoComplete="nickname"
+                  />
+                </div>
 
-              <label className="field-label" htmlFor="room-name">
-                房间名 <span className="optional">可选</span>
-              </label>
-              <input
-                id="room-name"
-                className="field"
-                value={roomName}
-                onChange={(event) => setRoomName(event.target.value.slice(0, 24))}
-                placeholder="例如：周五牌局"
-                maxLength={24}
-              />
+                <div className="create-field">
+                  <label className="field-label" htmlFor="rule-id">
+                    游戏规则
+                  </label>
+                  <select
+                    id="rule-id"
+                    className="field"
+                    value={ruleId}
+                    onChange={(event) => setRuleId(event.target.value as RuleId)}
+                  >
+                    {AVAILABLE_RULES.map((rule) => (
+                      <option key={rule.id} value={rule.id}>
+                        {rule.name}（{rule.capacity} 人）
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="create-field">
+                  <label className="field-label" htmlFor="room-name">
+                    房间名 <span className="optional">可选</span>
+                  </label>
+                  <input
+                    id="room-name"
+                    className="field"
+                    value={roomName}
+                    onChange={(event) => setRoomName(event.target.value.slice(0, 24))}
+                    placeholder="例如：周五牌局"
+                    maxLength={24}
+                  />
+                </div>
+              </div>
 
               <button type="submit" className="btn btn-gold w-full" disabled={creating}>
                 {creating ? (
@@ -360,6 +395,10 @@ export function LobbyPage({ playerName, onPlayerNameChange, notify }: LobbyPageP
                     </div>
 
                     <div className="room-tile-meta">
+                      <span className="room-players">
+                        <Layers size={14} aria-hidden="true" />
+                        {RULE_META[room.ruleId].name}
+                      </span>
                       <span className="room-players">
                         <Users size={14} aria-hidden="true" />
                         {room.players}/{room.capacity}

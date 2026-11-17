@@ -1,15 +1,17 @@
 import type {
   ChatMessage,
-  PublicGame,
   PublicSeat,
   RoomMeta,
   RoomStatus,
   RoomView,
   ServerMessage,
 } from '../shared/protocol';
-import { ROOM_CAPACITY } from '../shared/protocol';
+import { isRuleId, RULE_META } from '../shared/rules';
+import type { GameAction, RuleId } from '../shared/rules/types';
+import { BOT_ACTION_DELAY_MS, nextBotMessage, type BotMessage, type BotRoomSnapshot } from './bots';
 import type { Env } from './env';
-import { createGame, passTurn, playCards, type GameState } from './game/engine';
+import { ruleRuntime } from './game/rules';
+import type { RuleActionContext } from './game/rules/types';
 import {
   json,
   normalizeRoomCode,
@@ -22,26 +24,44 @@ const DISCONNECT_GRACE_MS = 60_000;
 const MAX_CHAT_MESSAGES = 60;
 const CHAT_COOLDOWN_MS = 700;
 
+/** 测试模式：房间名为 test 时用机器人补满座位，机器人只发送与真人等效的指令。 */
+const TEST_ROOM_NAME = 'test';
+const BOT_NAMES = ['人机 A', '人机 B', '人机 C'];
+
+/** 规则通用配置；后续接后台时改成从 env / 配置服务读取。 */
+const RULE_CONFIG = { scoreThreshold: 60 };
+
 interface SeatState {
   playerId: string;
   name: string;
   ready: boolean;
   joinedAt: number;
   disconnectedAt: number | null;
+  /** 机器人座位：没有 WebSocket，在线状态由 `onlinePlayerIds` 补上。 */
+  bot?: boolean;
+}
+
+/** 规则状态对房间层是不透明的，房间层只知道它属于哪套规则。 */
+interface StoredGame {
+  ruleId: RuleId;
+  state: unknown;
 }
 
 interface StoredRoom {
   id: string;
   name: string;
+  ruleId: RuleId;
   createdAt: number;
   updatedAt: number;
   hostId: string | null;
   status: RoomStatus;
   seats: (SeatState | null)[];
-  game: GameState | null;
+  game: StoredGame | null;
   chat: ChatMessage[];
   nextChatId: number;
   version: number;
+  /** 机器人动作失败时暂停，避免同一个失败动作反复触发 alarm。 */
+  botPaused?: boolean;
 }
 
 interface SocketAttachment {
@@ -62,12 +82,17 @@ function normalizePlayerId(value: string | null): string | null {
   return /^[A-Za-z0-9_-]{8,64}$/.test(trimmed) ? trimmed : null;
 }
 
+function isTestRoomName(name: string): boolean {
+  return name.trim().toLowerCase() === TEST_ROOM_NAME;
+}
+
 /**
  * 一个房间 = 一个 Durable Object 实例。
  *
  * - 房间之间的状态完全隔离，互不阻塞；
  * - WebSocket 使用 Hibernation API，空闲时 DO 可以休眠，适合免费套餐；
- * - 每个连接只收到自己的手牌，其他玩家只下发手牌数量。
+ * - 每个连接只收到自己的手牌，其他玩家只下发手牌数量；
+ * - 房间层不包含任何规则逻辑，只通过 `RuleRuntime` 接口与规则交互。
  */
 export class RoomDO {
   private readonly ctx: DurableObjectState;
@@ -79,7 +104,8 @@ export class RoomDO {
     this.ctx = ctx;
     this.env = env;
     ctx.blockConcurrencyWhile(async () => {
-      this.room = (await ctx.storage.get<StoredRoom>('room')) ?? null;
+      const stored = (await ctx.storage.get<StoredRoom>('room')) ?? null;
+      this.room = stored && isRuleId(stored.ruleId) ? stored : null;
     });
   }
 
@@ -110,93 +136,125 @@ export class RoomDO {
     }
     if (!payload || typeof payload !== 'object') return;
 
-    const message = payload as Record<string, unknown> & { type?: unknown };
     const playerId = attachmentOf(ws)?.playerId;
+    if (!playerId) return;
+
+    await this.dispatchMessage(
+      playerId,
+      payload as Record<string, unknown> & { type?: unknown },
+      ws,
+    );
+  }
+
+  /**
+   * 处理一条玩家消息。
+   *
+   * 真人通过 WebSocket 进入；机器人由 BotDriver 用同一个入口注入等效消息，
+   * 因此座位、准备、开局、动作校验、持久化与真人完全一致。
+   * 返回 false 只表示游戏动作被规则拒绝（机器人据此暂停）。
+   */
+  private async dispatchMessage(
+    playerId: string,
+    message: Record<string, unknown> & { type?: unknown },
+    ws: WebSocket | null,
+  ): Promise<boolean> {
     const room = this.room;
-    if (!playerId || !room) return;
+    if (!room) return true;
 
     if (message.type === 'ping') {
-      this.send(ws, { type: 'pong', t: Date.now() });
-      return;
+      if (ws) this.send(ws, { type: 'pong', t: Date.now() });
+      return true;
     }
 
     const seatIndex = this.findSeat(room, playerId);
 
     switch (message.type) {
       case 'ready': {
-        if (seatIndex === null) return this.sendError(ws, '你不在牌桌座位上');
-        if (room.status !== 'waiting') return this.sendError(ws, '牌局已经开始');
-        if (typeof message.ready !== 'boolean') return this.sendError(ws, '无效的准备状态');
+        if (seatIndex === null) return this.fail(ws, '你不在牌桌座位上');
+        if (room.status !== 'waiting') return this.fail(ws, '牌局已经开始');
+        if (typeof message.ready !== 'boolean') return this.fail(ws, '无效的准备状态');
         room.seats[seatIndex]!.ready = message.ready;
         await this.commit();
-        return;
+        return true;
       }
 
       case 'start': {
-        if (room.hostId !== playerId) return this.sendError(ws, '只有房主可以开始游戏');
-        if (room.status !== 'waiting') return this.sendError(ws, '牌局已经开始');
-        if (room.seats.some((seat) => seat === null)) {
-          return this.sendError(ws, '需要 3 名玩家才能开始');
+        if (room.hostId !== playerId) return this.fail(ws, '只有房主可以开始游戏');
+        if (room.status !== 'waiting') return this.fail(ws, '牌局已经开始');
+
+        const runtime = ruleRuntime(room.ruleId);
+        if (!runtime) return this.fail(ws, '该游戏规则暂未开放');
+
+        const capacity = runtime.meta.capacity;
+        if (room.seats.length !== capacity || room.seats.some((seat) => seat === null)) {
+          return this.fail(ws, `需要 ${capacity} 名玩家才能开始`);
         }
         if (!room.seats.every((seat) => seat?.ready)) {
-          return this.sendError(ws, '所有玩家准备后才能开始');
+          return this.fail(ws, '所有玩家准备后才能开始');
         }
         const online = this.onlinePlayerIds();
         if (room.seats.some((seat) => seat && !online.has(seat.playerId))) {
-          return this.sendError(ws, '有玩家掉线，请等待重连');
+          return this.fail(ws, '有玩家掉线，请等待重连');
         }
 
         const names = room.seats.map((seat) => seat?.name ?? '玩家');
         room.status = 'playing';
-        room.game = createGame(names);
+        room.botPaused = false;
+        room.game = {
+          ruleId: room.ruleId,
+          state: runtime.create({
+            names,
+            now: Date.now(),
+            random: Math.random,
+            config: RULE_CONFIG,
+          }),
+        };
         await this.commit();
-        return;
+        return true;
       }
 
-      case 'play': {
-        if (seatIndex === null) return this.sendError(ws, '你不在牌桌座位上');
+      case 'game': {
+        if (seatIndex === null) return this.fail(ws, '你不在牌桌座位上');
         if (room.status !== 'playing' || !room.game) {
-          return this.sendError(ws, '牌局尚未开始');
-        }
-        if (
-          !Array.isArray(message.cardIds) ||
-          message.cardIds.some((id) => typeof id !== 'string')
-        ) {
-          return this.sendError(ws, '出牌数据无效');
+          return this.fail(ws, '牌局尚未开始');
         }
 
-        const result = playCards(room.game, seatIndex, message.cardIds as string[]);
-        if (!result.ok) return this.sendError(ws, result.error);
+        const action = message.action as GameAction | undefined;
+        if (!action || typeof action !== 'object' || typeof action.type !== 'string') {
+          return this.fail(ws, '动作数据无效');
+        }
 
-        room.game = result.state;
-        if (room.game.phase === 'finished') {
+        const runtime = ruleRuntime(room.game.ruleId);
+        if (!runtime) return this.fail(ws, '该游戏规则暂未开放');
+
+        const ctx = this.ruleCtx();
+
+        // 先把状态推进到当前时间，避免玩家在已经过期的阶段上操作。
+        const ticked = runtime.tick(room.game.state, ctx.now, ctx);
+        if (ticked.state !== undefined) room.game.state = ticked.state;
+
+        const applied = runtime.apply(room.game.state, seatIndex, action, ctx);
+        if (applied.state !== undefined) room.game.state = applied.state;
+
+        if (ticked.result.finished || applied.result.finished) {
           room.status = 'finished';
         }
-        await this.commit();
-        return;
-      }
 
-      case 'pass': {
-        if (seatIndex === null) return this.sendError(ws, '你不在牌桌座位上');
-        if (room.status !== 'playing' || !room.game) {
-          return this.sendError(ws, '牌局尚未开始');
+        await this.commit();
+        if (!applied.result.ok) {
+          this.sendError(ws, applied.result.error ?? '操作失败');
+          return false;
         }
-
-        const result = passTurn(room.game, seatIndex);
-        if (!result.ok) return this.sendError(ws, result.error);
-
-        room.game = result.state;
-        await this.commit();
-        return;
+        return true;
       }
 
       case 'chat': {
-        if (seatIndex === null) return this.sendError(ws, '你不在牌桌座位上');
+        if (seatIndex === null) return this.fail(ws, '你不在牌桌座位上');
         const text = sanitizeChat(message.text);
-        if (!text) return;
+        if (!text) return true;
 
         const now = Date.now();
-        if (now - (this.lastChatAt.get(playerId) ?? 0) < CHAT_COOLDOWN_MS) return;
+        if (now - (this.lastChatAt.get(playerId) ?? 0) < CHAT_COOLDOWN_MS) return true;
         this.lastChatAt.set(playerId, now);
 
         room.chat.push({
@@ -211,16 +269,16 @@ export class RoomDO {
           room.chat.splice(0, room.chat.length - MAX_CHAT_MESSAGES);
         }
         await this.commit();
-        return;
+        return true;
       }
 
       case 'leave': {
         if (seatIndex === null) {
-          ws.close(1000, 'left');
-          return;
+          ws?.close(1000, 'left');
+          return true;
         }
         if (room.status === 'playing') {
-          return this.sendError(ws, '牌局进行中，暂时不能退出房间');
+          return this.fail(ws, '牌局进行中，暂时不能退出房间');
         }
 
         room.seats[seatIndex] = null;
@@ -235,15 +293,15 @@ export class RoomDO {
           }
         }
         await this.commit();
-        ws.close(1000, 'left');
-        return;
+        ws?.close(1000, 'left');
+        return true;
       }
 
       case 'restart': {
-        if (room.hostId !== playerId) return this.sendError(ws, '只有房主可以开启新一局');
-        if (room.status !== 'finished') return this.sendError(ws, '牌局尚未结束');
+        if (room.hostId !== playerId) return this.fail(ws, '只有房主可以开启新一局');
+        if (room.status !== 'finished') return this.fail(ws, '牌局尚未结束');
         if (room.seats.some((seat) => seat === null)) {
-          return this.sendError(ws, '有玩家离开，等待满员后再开始');
+          return this.fail(ws, '有玩家离开，等待满员后再开始');
         }
 
         room.status = 'waiting';
@@ -252,12 +310,17 @@ export class RoomDO {
           if (seat) seat.ready = false;
         }
         await this.commit();
-        return;
+        return true;
       }
 
       default:
-        return;
+        return true;
     }
+  }
+
+  private fail(ws: WebSocket | null, message: string, code = 'BAD_REQUEST'): false {
+    this.sendError(ws, message, code);
+    return false;
   }
 
   async webSocketClose(
@@ -290,57 +353,58 @@ export class RoomDO {
 
     this.broadcast(new Set([ws]));
     this.syncLobby();
-
-    if (room.status === 'waiting') {
-      await this.ctx.storage.setAlarm(Date.now() + DISCONNECT_GRACE_MS);
-    }
+    await this.scheduleAlarm();
   }
 
-  /** 掉线玩家在等待阶段超过宽限期后释放座位，避免房间永久卡死。 */
+  /** 统一处理规则定时器（发牌结束、甩3 超时…）与等待阶段的掉线回收。 */
   async alarm(): Promise<void> {
     const room = this.room;
-    if (!room || room.status !== 'waiting') return;
+    if (!room) return;
 
-    const online = this.onlinePlayerIds();
     const now = Date.now();
     let changed = false;
 
-    for (let index = 0; index < room.seats.length; index += 1) {
-      const seat = room.seats[index];
-      if (!seat || !seat.disconnectedAt) continue;
-      if (online.has(seat.playerId)) continue;
-      if (now - seat.disconnectedAt < DISCONNECT_GRACE_MS) continue;
+    if (room.game) {
+      const runtime = ruleRuntime(room.game.ruleId);
+      if (runtime) {
+        const ticked = runtime.tick(room.game.state, now, this.ruleCtx());
+        if (ticked.state !== undefined) {
+          room.game.state = ticked.state;
+          changed = true;
+        }
+        if (ticked.result.finished && room.status === 'playing') {
+          room.status = 'finished';
+          changed = true;
+        }
+      }
+    }
 
-      room.seats[index] = null;
-      changed = true;
+    // 如果本次 tick 刚推进了阶段（例如发牌结束），先让状态落地并广播，
+    // 机器人等到下一次 alarm 再行动，给真人留出抢甩 3 的时间。
+    if (!changed && (await this.runPendingBot())) return;
+
+    if (room.status === 'waiting') {
+      changed = this.reapDisconnectedSeats(room, now) || changed;
     }
 
     if (changed) {
-      if (room.hostId && !room.seats.some((seat) => seat?.playerId === room.hostId)) {
-        room.hostId = this.firstOccupiedPlayerId(room);
-      }
       await this.commit();
       return;
     }
 
-    const nextDeadline = room.seats.reduce<number | null>((earliest, seat) => {
-      if (!seat?.disconnectedAt || online.has(seat.playerId)) return earliest;
-      const deadline = seat.disconnectedAt + DISCONNECT_GRACE_MS;
-      return earliest === null ? deadline : Math.min(earliest, deadline);
-    }, null);
-
-    if (nextDeadline !== null) {
-      await this.ctx.storage.setAlarm(nextDeadline + 50);
-    }
+    await this.scheduleAlarm();
   }
 
   private async handleInit(request: Request): Promise<Response> {
     const body = (await request.json().catch(() => null)) as
-      | { id?: unknown; name?: unknown }
+      | { id?: unknown; name?: unknown; ruleId?: unknown }
       | null;
     const id = typeof body?.id === 'string' ? body.id.toUpperCase() : '';
     if (!normalizeRoomCode(id)) {
       return json({ error: 'invalid room id' }, 400);
+    }
+    if (!isRuleId(body?.ruleId)) {
+      return json({ error: 'invalid rule id' }, 400);
     }
 
     if (this.room && this.room.id !== id) {
@@ -348,15 +412,18 @@ export class RoomDO {
     }
 
     if (!this.room) {
+      const ruleId: RuleId = body.ruleId;
+      const capacity = RULE_META[ruleId].capacity;
       const now = Date.now();
       this.room = {
         id,
         name: sanitizeRoomName(body?.name),
+        ruleId,
         createdAt: now,
         updatedAt: now,
         hostId: null,
         status: 'waiting',
-        seats: [null, null, null],
+        seats: Array.from({ length: capacity }, () => null),
         game: null,
         chat: [],
         nextChatId: 1,
@@ -395,7 +462,8 @@ export class RoomDO {
       }
       const emptySeat = room.seats.findIndex((seat) => seat === null);
       if (emptySeat === -1) {
-        return this.rejectSocket('房间已满（3/3），请换一个房间');
+        const capacity = room.seats.length;
+        return this.rejectSocket(`房间已满（${capacity}/${capacity}），请换一个房间`);
       }
       if (!providedName) {
         return this.rejectSocket('请先填写昵称');
@@ -409,6 +477,8 @@ export class RoomDO {
         disconnectedAt: null,
       };
       room.hostId ??= playerId;
+      // 测试房间：第一位真人入座后，用机器人补满其余座位。
+      if (isTestRoomName(room.name)) this.seedBots(room);
       changed = true;
     } else {
       const seat = room.seats[existingSeat]!;
@@ -434,6 +504,8 @@ export class RoomDO {
     this.ctx.acceptWebSocket(server);
     server.serializeAttachment({ playerId } satisfies SocketAttachment);
 
+    // 机器人可能还需要发送 ready / start，统一让 alarm 调度。
+    await this.scheduleAlarm();
     this.broadcast();
     if (changed) this.syncLobby();
 
@@ -451,6 +523,84 @@ export class RoomDO {
     return new Response(null, { status: 101, webSocket: client });
   }
 
+  private ruleCtx(): RuleActionContext {
+    return {
+      now: Date.now(),
+      random: Math.random,
+      config: RULE_CONFIG,
+    };
+  }
+
+  /**
+   * 测试模式：房间名为 test 时，用机器人补满其余空座。
+   *
+   * 只有实现了 `botAction` 的规则才会获得机器人，避免建出「有人机但没人行动」的房间。
+   * 机器人同样从「未准备」开始，由 BotDriver 发送 ready 消息自动准备。
+   */
+  private seedBots(room: StoredRoom): void {
+    if (!isTestRoomName(room.name)) return;
+    if (!ruleRuntime(room.ruleId)?.botAction) return;
+
+    const now = Date.now();
+    let botIndex = 0;
+
+    for (let index = 0; index < room.seats.length; index += 1) {
+      if (room.seats[index]) continue;
+
+      room.seats[index] = {
+        playerId: `bot-${room.id}-${index}`,
+        name: BOT_NAMES[botIndex % BOT_NAMES.length],
+        ready: false,
+        joinedAt: now,
+        disconnectedAt: null,
+        bot: true,
+      };
+      botIndex += 1;
+    }
+  }
+
+  private botSnapshot(room: StoredRoom): BotRoomSnapshot {
+    return {
+      status: room.status,
+      hostId: room.hostId,
+      seats: room.seats.map((seat) =>
+        seat
+          ? { playerId: seat.playerId, ready: seat.ready, bot: seat.bot === true }
+          : null,
+      ),
+      game: room.game,
+    };
+  }
+
+  /** 机器人下一条要发送的等效消息；null 表示没有机器人需要行动。 */
+  private pendingBotMessage(): BotMessage | null {
+    const room = this.room;
+    if (!room || room.botPaused) return null;
+    return nextBotMessage(this.botSnapshot(room), this.ruleCtx());
+  }
+
+  /**
+   * 让机器人通过和真人相同的消息入口行动一条。
+   *
+   * 消息处理内部会完成 commit（持久化 / alarm / 广播）；
+   * 动作被拒绝时暂停机器人，避免同一个失败动作反复触发 alarm。
+   */
+  private async runPendingBot(): Promise<boolean> {
+    const pending = this.pendingBotMessage();
+    if (!pending) return false;
+
+    const ok = await this.dispatchMessage(
+      pending.playerId,
+      pending.message as unknown as Record<string, unknown> & { type?: unknown },
+      null,
+    );
+    if (!ok) {
+      console.warn('bot message rejected', pending.message.type);
+      if (this.room) this.room.botPaused = true;
+    }
+    return true;
+  }
+
   private async commit(): Promise<void> {
     const room = this.room;
     if (!room) return;
@@ -458,8 +608,61 @@ export class RoomDO {
     room.version += 1;
     room.updatedAt = Date.now();
     await this.ctx.storage.put('room', room);
+    await this.scheduleAlarm();
     this.broadcast();
     this.syncLobby();
+  }
+
+  /** DO 同时只有一个 alarm，因此只取所有待办时间点的最早一个。 */
+  private async scheduleAlarm(): Promise<void> {
+    const room = this.room;
+    if (!room) return;
+
+    const deadlines: number[] = [];
+
+    if (room.game) {
+      const runtime = ruleRuntime(room.game.ruleId);
+      const deadline = runtime?.nextDeadline(room.game.state) ?? null;
+      if (deadline !== null) deadlines.push(deadline);
+    }
+
+    // 机器人动作也走 alarm：到点后一次只走一条等效消息。
+    if (this.pendingBotMessage()) {
+      deadlines.push(Date.now() + BOT_ACTION_DELAY_MS);
+    }
+
+    if (room.status === 'waiting') {
+      const online = this.onlinePlayerIds();
+      for (const seat of room.seats) {
+        if (seat?.disconnectedAt && !online.has(seat.playerId)) {
+          deadlines.push(seat.disconnectedAt + DISCONNECT_GRACE_MS);
+        }
+      }
+    }
+
+    if (deadlines.length === 0) return;
+    await this.ctx.storage.setAlarm(Math.min(...deadlines) + 20);
+  }
+
+  private reapDisconnectedSeats(room: StoredRoom, now: number): boolean {
+    const online = this.onlinePlayerIds();
+    let changed = false;
+
+    for (let index = 0; index < room.seats.length; index += 1) {
+      const seat = room.seats[index];
+      if (!seat || !seat.disconnectedAt) continue;
+      if (online.has(seat.playerId)) continue;
+      if (now - seat.disconnectedAt < DISCONNECT_GRACE_MS) continue;
+
+      room.seats[index] = null;
+      changed = true;
+    }
+
+    if (changed && room.hostId && !room.seats.some((seat) => seat?.playerId === room.hostId)) {
+      room.hostId = this.firstOccupiedPlayerId(room);
+    }
+
+    return changed;
   }
 
   private broadcast(exclude?: Set<WebSocket>): void {
@@ -469,12 +672,7 @@ export class RoomDO {
     const sockets = this.ctx
       .getWebSockets()
       .filter((socket) => !exclude?.has(socket));
-    const online = new Set<string>();
-
-    for (const socket of sockets) {
-      const playerId = attachmentOf(socket)?.playerId;
-      if (playerId) online.add(playerId);
-    }
+    const online = this.onlinePlayerIds(exclude);
 
     for (const socket of sockets) {
       const playerId = attachmentOf(socket)?.playerId;
@@ -506,26 +704,15 @@ export class RoomDO {
         : null,
     );
 
-    let game: PublicGame | null = null;
-    if (room.game) {
-      game = {
-        phase: room.game.phase,
-        landlordSeat: room.game.landlordSeat,
-        currentSeat: room.game.currentSeat,
-        hand: seatIndex === null ? [] : (room.game.hands[seatIndex] ?? []),
-        handCounts: room.game.hands.map((hand) => hand.length),
-        bottomCards: room.game.bottomCards,
-        lastPlay: room.game.lastPlay,
-        passCount: room.game.passCount,
-        winnerSeat: room.game.winnerSeat,
-        turnStartedAt: room.game.turnStartedAt,
-        log: room.game.log.slice(-40),
-      };
-    }
+    const names = room.seats.map((seat) => seat?.name ?? '玩家');
+    const game = room.game
+      ? (ruleRuntime(room.game.ruleId)?.view(room.game.state, seatIndex, names) ?? null)
+      : null;
 
     return {
       id: room.id,
       name: room.name,
+      ruleId: room.ruleId,
       status: room.status,
       hostId: room.hostId,
       seats,
@@ -548,6 +735,10 @@ export class RoomDO {
       const playerId = attachmentOf(socket)?.playerId;
       if (playerId) online.add(playerId);
     }
+    // 机器人没有 WebSocket，但对房间来说始终在线。
+    for (const seat of this.room?.seats ?? []) {
+      if (seat?.bot) online.add(seat.playerId);
+    }
     return online;
   }
 
@@ -566,9 +757,10 @@ export class RoomDO {
     return {
       id: room.id,
       name: room.name,
+      ruleId: room.ruleId,
       status: room.status,
       players: room.seats.filter((seat) => seat !== null).length,
-      capacity: ROOM_CAPACITY,
+      capacity: RULE_META[room.ruleId].capacity,
       createdAt: room.createdAt,
       updatedAt: room.updatedAt,
     };
@@ -598,7 +790,8 @@ export class RoomDO {
     this.ctx.waitUntil(task);
   }
 
-  private send(ws: WebSocket, message: ServerMessage): void {
+  private send(ws: WebSocket | null, message: ServerMessage): void {
+    if (!ws) return;
     try {
       ws.send(JSON.stringify(message));
     } catch {
@@ -606,7 +799,7 @@ export class RoomDO {
     }
   }
 
-  private sendError(ws: WebSocket, message: string, code = 'BAD_REQUEST'): void {
+  private sendError(ws: WebSocket | null, message: string, code = 'BAD_REQUEST'): void {
     this.send(ws, { type: 'error', code, message });
   }
 }

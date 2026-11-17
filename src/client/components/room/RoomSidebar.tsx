@@ -53,7 +53,9 @@ export function RoomSidebar({
       <div className="sidebar-head">
         <div>
           <p className="eyebrow">牌桌</p>
-          <h2 className="sidebar-title">{occupied}/3 玩家</h2>
+          <h2 className="sidebar-title">
+            {occupied}/{seats.length} 玩家
+          </h2>
         </div>
         <div className="sidebar-head-tools">
           <span className="room-code room-code--small">{roomId}</span>

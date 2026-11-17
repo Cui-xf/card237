@@ -1,14 +1,13 @@
-import type { Card } from './cards';
+import type { GameAction, PublicGameView, RuleId } from './rules/types';
 
-export const ROOM_CAPACITY = 3;
 export const ROOM_CODE_LENGTH = 6;
 
 export type RoomStatus = 'waiting' | 'playing' | 'finished';
-export type GamePhase = 'playing' | 'finished';
 
 export interface RoomMeta {
   id: string;
   name: string;
+  ruleId: RuleId;
   status: RoomStatus;
   players: number;
   capacity: number;
@@ -34,7 +33,17 @@ export interface ChatMessage {
   at: number;
 }
 
-export type GameLogKind = 'system' | 'landlord' | 'play' | 'pass' | 'win';
+/** 牌局日志分类，保持规则无关，供各规则复用。 */
+export type GameLogKind =
+  | 'system'
+  | 'landlord'
+  | 'play'
+  | 'pass'
+  | 'win'
+  | 'deal'
+  | 'trump'
+  | 'trick'
+  | 'score';
 
 export interface GameLogEntry {
   id: number;
@@ -44,34 +53,15 @@ export interface GameLogEntry {
   seat?: number;
 }
 
-export interface LastPlay {
-  seat: number;
-  cards: Card[];
-  at: number;
-}
-
-export interface PublicGame {
-  phase: GamePhase;
-  landlordSeat: number;
-  currentSeat: number;
-  /** 只包含当前连接玩家自己的手牌，其他玩家手牌永远不会下发。 */
-  hand: Card[];
-  handCounts: number[];
-  bottomCards: Card[];
-  lastPlay: LastPlay | null;
-  passCount: number;
-  winnerSeat: number | null;
-  turnStartedAt: number;
-  log: GameLogEntry[];
-}
-
 export interface RoomView {
   id: string;
   name: string;
+  ruleId: RuleId;
   status: RoomStatus;
   hostId: string | null;
   seats: (PublicSeat | null)[];
-  game: PublicGame | null;
+  /** 规则无关的信封；具体字段由 `ruleId` 决定。 */
+  game: PublicGameView | null;
   chat: ChatMessage[];
   version: number;
   serverTime: number;
@@ -85,8 +75,7 @@ export interface RoomView {
 export type ClientMessage =
   | { type: 'ready'; ready: boolean }
   | { type: 'start' }
-  | { type: 'play'; cardIds: string[] }
-  | { type: 'pass' }
+  | { type: 'game'; action: GameAction }
   | { type: 'chat'; text: string }
   | { type: 'leave' }
   | { type: 'restart' }

@@ -1,7 +1,8 @@
-import type { Card } from '../../shared/cards';
-import { cardLabel, findCard, sortCards } from '../../shared/cards';
-import type { GameLogEntry, GameLogKind, LastPlay } from '../../shared/protocol';
-import { createDeck, shuffle } from './deck';
+import type { Card } from '../../../../shared/cards';
+import { cardLabel, findCard, sortCards } from '../../../../shared/cards';
+import type { GameLogEntry, GameLogKind } from '../../../../shared/protocol';
+import type { LastPlay } from '../../../../shared/rules/landlord';
+import { createDeck, shuffle } from '../../deck';
 
 export interface GameState {
   phase: 'playing' | 'finished';

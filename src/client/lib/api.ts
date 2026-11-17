@@ -1,4 +1,5 @@
 import type { RoomMeta } from '../../shared/protocol';
+import type { RuleId } from '../../shared/rules/types';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -26,10 +27,13 @@ export function fetchRooms(): Promise<{ rooms: RoomMeta[] }> {
   return request('/api/rooms');
 }
 
-export function createRoom(name: string): Promise<{ room: RoomMeta }> {
+export function createRoom(
+  name: string,
+  ruleId: RuleId,
+): Promise<{ room: RoomMeta }> {
   return request('/api/rooms', {
     method: 'POST',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, ruleId }),
   });
 }
 

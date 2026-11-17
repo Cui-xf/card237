@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RANK_VALUE } from '../../shared/cards';
+import { RANK_VALUE } from '../../../../shared/cards';
 import { createGame, passTurn, playCards } from './engine';
 
 const names = ['甲', '乙', '丙'];

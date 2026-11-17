@@ -1,5 +1,12 @@
 import type { RoomMeta, RoomStatus } from '../shared/protocol';
-import { isRoomStatus, ROOM_CAPACITY } from '../shared/protocol';
+import { isRoomStatus } from '../shared/protocol';
+import {
+  DEFAULT_RULE_ID,
+  isRuleAvailable,
+  isRuleId,
+  RULE_META,
+} from '../shared/rules';
+import type { RuleId } from '../shared/rules/types';
 import type { Env } from './env';
 import { generateRoomCode, json, sanitizeRoomName } from './util';
 
@@ -51,7 +58,7 @@ export class LobbyDO {
     let changed = false;
 
     for (const [id, meta] of Object.entries(this.store.rooms)) {
-      if (now - meta.updatedAt > STALE_AFTER_MS) {
+      if (now - meta.updatedAt > STALE_AFTER_MS || !isRuleId(meta.ruleId)) {
         delete this.store.rooms[id];
         changed = true;
       }
@@ -71,8 +78,15 @@ export class LobbyDO {
   }
 
   private async createRoom(request: Request): Promise<Response> {
-    const body = (await request.json().catch(() => null)) as { name?: unknown } | null;
+    const body = (await request.json().catch(() => null)) as
+      | { name?: unknown; ruleId?: unknown }
+      | null;
     const name = sanitizeRoomName(body?.name);
+
+    const ruleId: RuleId = body?.ruleId === undefined ? DEFAULT_RULE_ID : (body.ruleId as RuleId);
+    if (!isRuleId(ruleId) || !isRuleAvailable(ruleId)) {
+      return json({ error: '不支持的游戏规则' }, 400);
+    }
 
     let id = generateRoomCode();
     let attempts = 0;
@@ -88,9 +102,10 @@ export class LobbyDO {
     const meta: RoomMeta = {
       id,
       name,
+      ruleId,
       status: 'waiting',
       players: 0,
-      capacity: ROOM_CAPACITY,
+      capacity: RULE_META[ruleId].capacity,
       createdAt: now,
       updatedAt: now,
     };
@@ -113,18 +128,26 @@ export class LobbyDO {
       return json({ error: 'invalid room meta' }, 400);
     }
 
+    if (!isRuleId(body.ruleId)) {
+      return json({ error: 'invalid room meta' }, 400);
+    }
+
     const existing = this.store.rooms[body.id];
+    const ruleId: RuleId = body.ruleId;
+    const capacity = RULE_META[ruleId].capacity;
+
     const healedPlayers =
       typeof body.players === 'number'
-        ? Math.max(0, Math.min(ROOM_CAPACITY, Math.floor(body.players)))
-        : (existing?.players ?? 0);
+        ? Math.max(0, Math.min(capacity, Math.floor(body.players)))
+        : Math.min(capacity, existing?.players ?? 0);
 
     const meta: RoomMeta = {
       id: body.id,
       name: sanitizeRoomName(body.name ?? existing?.name),
+      ruleId,
       status: isRoomStatus(body.status) ? body.status : (existing?.status ?? 'waiting'),
       players: healedPlayers,
-      capacity: ROOM_CAPACITY,
+      capacity,
       createdAt: existing?.createdAt ?? Date.now(),
       updatedAt: Date.now(),
     };
