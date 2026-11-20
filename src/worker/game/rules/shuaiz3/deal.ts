@@ -17,19 +17,36 @@ interface DealPlan {
   bottomCards: Card[];
 }
 
-/** 洗牌并保证至少一张 3 发给玩家（4 张 3 全在底牌时重洗）。 */
-function buildDealPlan(random: () => number): DealPlan {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    const deck = shuffle(createDeck(), random);
-    const hands: Card[][] = Array.from({ length: SEAT_COUNT }, () => []);
+/** 把一副排好序的牌切成四家手牌与底牌。牌序 0..47 按座位 0,1,2,3 轮转。 */
+function splitDeck(deck: Card[]): DealPlan {
+  const hands: Card[][] = Array.from({ length: SEAT_COUNT }, () => []);
+  for (let index = 0; index < SEAT_COUNT * HAND_SIZE; index += 1) {
+    hands[index % SEAT_COUNT].push(deck[index]);
+  }
+  return { deck, hands, bottomCards: deck.slice(SEAT_COUNT * HAND_SIZE) };
+}
 
-    // 牌序 0..47 按座位 0,1,2,3 轮转，最后 6 张为底牌。
-    for (let index = 0; index < SEAT_COUNT * HAND_SIZE; index += 1) {
-      hands[index % SEAT_COUNT].push(deck[index]);
+/**
+ * 洗牌并保证至少一张 3 发给玩家（4 张 3 全在底牌时重洗）。
+ *
+ * 传入 fixedDeck 时直接用这副固定牌序（测试房间），不走洗牌。
+ */
+function buildDealPlan(random: () => number, fixedDeck?: Card[]): DealPlan {
+  if (fixedDeck) {
+    if (fixedDeck.length !== DECK_SIZE) {
+      throw new Error(`固定牌序需要 ${DECK_SIZE} 张牌，实际 ${fixedDeck.length} 张`);
     }
+    const plan = splitDeck(fixedDeck);
+    if (!plan.hands.some((hand) => hand.some((card) => card.rank === '3'))) {
+      throw new Error('固定牌序里没有把 3 发给玩家');
+    }
+    return plan;
+  }
 
-    if (hands.some((hand) => hand.some((card) => card.rank === '3'))) {
-      return { deck, hands, bottomCards: deck.slice(SEAT_COUNT * HAND_SIZE) };
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const plan = splitDeck(shuffle(createDeck(), random));
+    if (plan.hands.some((hand) => hand.some((card) => card.rank === '3'))) {
+      return plan;
     }
   }
 
@@ -78,13 +95,14 @@ export function createGame(
   names: string[],
   now = Date.now(),
   random: () => number = Math.random,
+  fixedDeck?: Card[],
 ): Shuaiz3State {
   if (names.length !== SEAT_COUNT) {
     throw new Error(`甩3 需要 ${SEAT_COUNT} 名玩家才能开始`);
   }
 
   const state = baseState(names);
-  applyDealPlan(state, buildDealPlan(random), now);
+  applyDealPlan(state, buildDealPlan(random, fixedDeck), now);
   addLog(state, 'deal', '开始逐张发牌，每人 12 张，剩余 6 张为底牌', now);
   return state;
 }

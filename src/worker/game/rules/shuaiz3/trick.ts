@@ -74,6 +74,8 @@ export function resolveTrick(
     0,
   );
   const cards = trick.plays.flatMap((play) => play.cards);
+  // 逐家保存一份出牌：本轮结束后客户端要把整轮牌留在桌上，并高亮赢家的那一手。
+  const plays = trick.plays.map((play) => ({ seat: play.seat, cards: [...play.cards] }));
   const leadIsTrump = trick.leadSuit === 'trump';
 
   // 1) 杀牌：领出不是主牌，且整手全是主牌。
@@ -87,12 +89,12 @@ export function resolveTrick(
       const bestValue = Math.max(...best.cards.map((card) => trumpValue(card, trumpSuit)));
       if (value > bestValue) best = play;
     }
-    return { winnerSeat: best.seat, points, cards };
+    return { winnerSeat: best.seat, points, cards, plays };
   }
 
   // 2) 多张领出未被杀：打小机制已保证同花色无人更大，领出者赢。
   if (trick.count > 1) {
-    return { winnerSeat: trick.leadSeat, points, cards };
+    return { winnerSeat: trick.leadSeat, points, cards, plays };
   }
 
   // 3) 单张领出：同花色里最大者赢。
@@ -105,7 +107,7 @@ export function resolveTrick(
       best = play;
     }
   }
-  return { winnerSeat: best.seat, points, cards };
+  return { winnerSeat: best.seat, points, cards, plays };
 }
 
 function finishTrick(

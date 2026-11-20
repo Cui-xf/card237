@@ -1,5 +1,4 @@
 import type Phaser from 'phaser';
-import { SUIT_SYMBOL } from '../../../../shared/cards';
 import { DealQueue, pulse } from '../../core/fx';
 import { THEME, type Theme } from '../../core/theme';
 import type { CenterContext, CenterView, SeatPosition, TableModel } from '../../core/types';
@@ -56,7 +55,7 @@ export class DealingView {
 
     this.title
       .setVisible(true)
-      .setPosition(ctx.width / 2, ctx.height * (compact ? 0.32 : 0.38));
+      .setPosition(ctx.width / 2, ctx.height * (compact ? 0.35 : 0.38));
     this.subtitle
       .setVisible(!compact && Boolean(center.declaredName))
       .setText(center.declaredName ? `${center.declaredName} 已甩 3` : '')
@@ -240,7 +239,7 @@ export class DeclareView {
 
     if (compact) {
       // 紧凑横屏：倒计时环和阶段文字并成一行，中央不再上下堆四条信息。
-      const y = ctx.height * 0.32;
+      const y = ctx.height * 0.35;
       const ringRadius = 17;
       const gap = 12;
       this.title
@@ -343,12 +342,11 @@ export class DeclareView {
   }
 }
 
-/** 还底阶段的提示与倒计时。 */
+/** 还底阶段的倒计时：只保留环与秒数，操作说明交给按钮。 */
 export class ReturnView {
   private readonly scene: Phaser.Scene;
   private readonly theme: Theme;
   private readonly ring: Phaser.GameObjects.Graphics;
-  private readonly title: Phaser.GameObjects.Text;
   private readonly seconds: Phaser.GameObjects.Text;
 
   private initialSeconds = 0;
@@ -359,16 +357,6 @@ export class ReturnView {
     this.scene = scene;
     this.theme = theme;
     this.ring = scene.add.graphics().setDepth(14);
-    this.title = scene.add
-      .text(0, 0, '', {
-        fontFamily: theme.font.body,
-        fontSize: `${theme.size.title}px`,
-        color: theme.color.cream,
-        align: 'center',
-        wordWrap: { width: 520 },
-      })
-      .setOrigin(0.5)
-      .setDepth(15);
     this.seconds = scene.add
       .text(0, 0, '', {
         fontFamily: theme.font.num,
@@ -384,7 +372,6 @@ export class ReturnView {
   update(model: Shuaiz3TableModel, _now: number, ctx: CenterContext): void {
     const center = model.center;
     const visible = center.kind === 'returning';
-    this.title.setVisible(visible);
     this.seconds.setVisible(visible);
     this.ring.setVisible(visible);
 
@@ -402,47 +389,20 @@ export class ReturnView {
     const danger = center.remainingSeconds <= 5;
     const compact = ctx.metrics.compact;
     const centerX = ctx.width / 2;
+    const y = compact ? ctx.height * 0.35 : ctx.height * 0.34 + 60;
+    const ringRadius = compact ? 17 : 44;
 
-    if (compact) {
-      // 紧凑横屏：环和文字同一行，和甩 3 阶段保持一致的中央节奏。
-      const y = ctx.height * 0.32;
-      const ringRadius = 17;
-      const gap = 12;
-      this.title
-        .setFontSize(14)
-        .setOrigin(0, 0.5)
-        .setText(center.isDealer ? '选择 6 张非 5 / 10 / K' : '等待庄家还底…');
-      const total = ringRadius * 2 + gap + this.title.width;
-      const ringX = centerX - total / 2 + ringRadius;
-      this.drawRing(ringX, y, center.remainingSeconds, danger, ctx.reducedMotion, ringRadius);
-      this.seconds
-        .setFontSize(18)
-        .setText(String(center.remainingSeconds))
-        .setColor(danger ? this.theme.color.danger : this.theme.color.gold.light)
-        .setPosition(ringX, y);
-      this.title.setPosition(ringX + ringRadius + gap, y);
-      return;
-    }
-
-    const titleY = ctx.height * 0.34;
-    const centerY = ctx.height * 0.34 + 60;
-    this.title
-      .setFontSize(this.theme.size.title)
-      .setOrigin(0.5)
-      .setText(center.isDealer ? '选择 6 张非点牌还底' : '等待庄家还底…')
-      .setPosition(centerX, titleY);
-    this.drawRing(centerX, centerY, center.remainingSeconds, danger, ctx.reducedMotion, 44);
+    this.drawRing(centerX, y, center.remainingSeconds, danger, ctx.reducedMotion, ringRadius);
     this.seconds
-      .setFontSize(this.theme.size.countdown)
+      .setFontSize(compact ? 18 : this.theme.size.countdown)
       .setText(String(center.remainingSeconds))
       .setColor(danger ? this.theme.color.danger : this.theme.color.gold.light)
-      .setPosition(centerX, centerY);
+      .setPosition(centerX, y);
   }
 
   destroy(): void {
     this.stopPulse();
     this.ring.destroy();
-    this.title.destroy();
     this.seconds.destroy();
   }
 
@@ -490,79 +450,12 @@ export class ReturnView {
   }
 }
 
-function leadLabel(model: Shuaiz3TableModel): string {
-  const lead = model.center.leadSuit;
-  if (!lead) return '—';
-  return lead === 'trump' ? '主牌' : SUIT_SYMBOL[lead];
-}
-
-/** 出牌阶段的本轮信息与上一墩摘要。 */
-export class TrickView {
-  private readonly title: Phaser.GameObjects.Text;
-  private readonly subtitle: Phaser.GameObjects.Text;
-
-  constructor(scene: Phaser.Scene, theme: Theme) {
-    this.title = scene.add
-      .text(0, 0, '', {
-        fontFamily: theme.font.body,
-        fontSize: `${theme.size.body}px`,
-        color: theme.color.mint,
-        align: 'center',
-      })
-      .setOrigin(0.5)
-      .setDepth(15);
-    this.subtitle = scene.add
-      .text(0, 0, '', {
-        fontFamily: theme.font.body,
-        fontSize: `${theme.size.caption}px`,
-        color: theme.color.gold.base,
-        align: 'center',
-      })
-      .setOrigin(0.5)
-      .setDepth(15);
-  }
-
-  update(model: Shuaiz3TableModel, _now: number, ctx: CenterContext): void {
-    const center = model.center;
-    const compact = ctx.metrics.compact;
-    const visible = center.kind === 'trick';
-    this.title.setVisible(visible);
-    this.subtitle.setVisible(visible && !compact && Boolean(center.lastTrick));
-    if (!visible) return;
-
-    this.title
-      .setFontSize(compact ? 13 : 14)
-      .setText(
-        center.count > 0
-          ? `本轮 ${center.count} 张 · 引领 ${leadLabel(model)}`
-          : model.turnSeat !== null && model.turnSeat === model.selfSeat
-            ? '轮到你领出'
-            : '等待出牌',
-      )
-      .setPosition(ctx.width / 2, ctx.height * 0.3);
-
-    if (!compact && center.lastTrick) {
-      const winner =
-        model.seats.find((seat) => seat.index === center.lastTrick?.winnerSeat)?.name ??
-        '玩家';
-      this.subtitle
-        .setText(`上一墩 ${winner} 得 ${center.lastTrick.points} 分`)
-        .setPosition(ctx.width / 2, ctx.height * 0.3 + 28);
-    }
-  }
-
-  destroy(): void {
-    this.title.destroy();
-    this.subtitle.destroy();
-  }
-}
-
 interface SubView {
   update(model: Shuaiz3TableModel, now: number, ctx: CenterContext): void;
   destroy(): void;
 }
 
-/** 甩 3 的中央阶段区：发牌 / 甩 3 / 还底 / 出牌。 */
+/** 甩 3 的中央阶段区：发牌 / 甩 3 / 还底；出牌阶段中央留空，只留出牌区。 */
 export class Shuaiz3CenterView implements CenterView {
   private readonly views: SubView[];
 
@@ -571,7 +464,6 @@ export class Shuaiz3CenterView implements CenterView {
       new DealingView(scene, theme),
       new DeclareView(scene, theme),
       new ReturnView(scene, theme),
-      new TrickView(scene, theme),
     ];
   }
 

@@ -242,7 +242,9 @@ export function RoomPage({
   else waitingHint = '可以开始了';
 
   return (
-    <div className={`room-page${isLandscape ? ' is-landscape' : ''}`}>
+    <div
+      className={`room-page${isLandscape ? ' is-landscape' : ''}${game ? ' has-game' : ''}`}
+    >
       <header className="room-topbar">
         <div className="page-shell room-topbar-inner">
           <div className="room-heading">

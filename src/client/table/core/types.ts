@@ -47,6 +47,8 @@ export interface ActionSlot {
 export interface PlayedGroup {
   seat: number;
   cards: TableCard[];
+  /** 本轮最大的一手：整组牌描金边，兼作「下一轮由他领出」的提示。 */
+  winner?: boolean;
 }
 
 export interface SelectionResult {
@@ -134,6 +136,16 @@ export interface DebugButtonRect {
   h: number;
 }
 
+/** 结算面板上的按钮；供自动化验收点「再来一局」。 */
+export interface DebugOverlayButton {
+  key: 'restart' | 'leave';
+  label: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface TableDebugSnapshot {
   ready: boolean;
   ruleId: RuleId;
@@ -146,6 +158,10 @@ export interface TableDebugSnapshot {
   hand: TableCard[];
   cards: DebugCardRect[];
   buttons: DebugButtonRect[];
+  /** 当前桌面上的出牌分组，供自动化验收断言「谁出的牌在哪」。 */
+  played: PlayedGroup[];
+  /** 结算面板按钮；未显示结算时为 0 个。 */
+  overlayButtons: DebugOverlayButton[];
   center: unknown;
   width: number;
   height: number;

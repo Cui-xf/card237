@@ -5,6 +5,7 @@ import { THEME, type Theme } from '../theme';
 import type {
   ActionSlot,
   DebugButtonRect,
+  DebugOverlayButton,
   Metrics,
   ResultModel,
 } from '../types';
@@ -248,6 +249,7 @@ export class ResultOverlayView {
   private isHost = false;
   private reducedMotion = false;
   private tweens: Phaser.Tweens.Tween[] = [];
+  private buttonRects: DebugOverlayButton[] = [];
 
   private readonly pixelRatio: number;
 
@@ -283,6 +285,12 @@ export class ResultOverlayView {
     this.shade = null;
     this.panel?.destroy(true);
     this.panel = null;
+    this.buttonRects = [];
+  }
+
+  /** 自动化测试：结算面板按钮的场景坐标；面板未显示时为空。 */
+  debugRects(): DebugOverlayButton[] {
+    return this.result ? this.buttonRects.map((rect) => ({ ...rect })) : [];
   }
 
   destroy(): void {
@@ -303,6 +311,7 @@ export class ResultOverlayView {
     this.tweens = [];
     this.shade?.destroy();
     this.panel?.destroy(true);
+    this.buttonRects = [];
 
     const width = this.scene.scale.width / this.pixelRatio;
     const height = this.scene.scale.height / this.pixelRatio;
@@ -385,11 +394,26 @@ export class ResultOverlayView {
     }
 
     const buttonY = panelHeight / 2 - (compact ? 32 : 36);
-    const buttons: { label: string; onClick: () => void; primary: boolean }[] = [];
+    const buttons: {
+      key: DebugOverlayButton['key'];
+      label: string;
+      onClick: () => void;
+      primary: boolean;
+    }[] = [];
     if (this.isHost) {
-      buttons.push({ label: '再来一局', onClick: () => this.handlers.onRestart(), primary: true });
+      buttons.push({
+        key: 'restart',
+        label: '再来一局',
+        onClick: () => this.handlers.onRestart(),
+        primary: true,
+      });
     }
-    buttons.push({ label: '离开牌桌', onClick: () => this.handlers.onLeave(), primary: false });
+    buttons.push({
+      key: 'leave',
+      label: '离开牌桌',
+      onClick: () => this.handlers.onLeave(),
+      primary: false,
+    });
 
     const buttonWidth = 128;
     const gap = 14;
@@ -400,6 +424,14 @@ export class ResultOverlayView {
       const button = this.createButton(item.label, item.onClick, item.primary, buttonWidth);
       button.setPosition(x, buttonY);
       panel.add(button);
+      this.buttonRects.push({
+        key: item.key,
+        label: item.label,
+        x: width / 2 + x,
+        y: height / 2 + buttonY,
+        w: buttonWidth,
+        h: 44,
+      });
       x += buttonWidth + gap;
     }
 

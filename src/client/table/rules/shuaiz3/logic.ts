@@ -47,29 +47,12 @@ export function buildShuaiz3Chrome(model: Shuaiz3TableModel): ChromeSpec[] {
   const center = model.center;
   const specs: ChromeSpec[] = [];
 
+  // 只保留主牌信息：庄家与阵营已经由座位角标和结算面板承载，桌面上不再重复。
   specs.push({
     label: center.trumpSuit ? `主牌 ${SUIT_SYMBOL[center.trumpSuit]}` : '主牌 未定',
     tone: 'muted',
     placement: 'table',
   });
-
-  if (center.dealerSeat !== null) {
-    const dealer =
-      model.seats.find((seat) => seat.index === center.dealerSeat)?.name ?? '玩家';
-    specs.push({
-      label: `庄家 ${dealer}`,
-      tone: 'muted',
-      placement: 'table',
-    });
-  }
-
-  if (center.team) {
-    specs.push({
-      label: center.team === 'zhuang' ? '庄队' : '闲队',
-      tone: center.team === 'zhuang' ? 'gold' : 'muted',
-      placement: 'self',
-    });
-  }
 
   return specs;
 }
@@ -161,10 +144,9 @@ export function buildShuaiz3Actions(
 
   if (center.kind === 'trick' && isMyTurn) {
     const verdict = validateShuaiz3Selection(model, selected);
-    const label = center.trick ? '出牌' : '领出';
     actions.push({
       key: 'primary',
-      label: selected.length > 0 ? `${label} · ${selected.length}` : label,
+      label: selected.length > 0 ? `出牌 · ${selected.length}` : '出牌',
       enabled: verdict.ok,
       hint: verdict.hint,
       action: { type: 'play', cardIds: selected.map((card) => card.id) },

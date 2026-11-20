@@ -970,6 +970,7 @@
 --------------------------------------------------------------------------- */
 
 .room-page.is-landscape {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100dvh;
@@ -983,9 +984,41 @@
   padding-right: max(12px, env(safe-area-inset-right, 0px));
 }
 
+/* 开局后顶栏不再占布局高度：整条悬浮在牌桌上方，把整屏高度还给牌桌。 */
+.room-page.is-landscape.has-game .room-topbar {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 50;
+  padding-top: max(6px, env(safe-area-inset-top, 0px));
+  border-bottom: none;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  pointer-events: none;
+}
+
 .room-page.is-landscape .room-topbar-inner {
+  align-items: flex-start;
   gap: 10px;
-  min-height: 48px;
+  min-height: 0;
+}
+
+.room-page.is-landscape.has-game .room-heading {
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+.room-page.is-landscape.has-game .room-heading-meta {
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+/* 按钮本身不变，只是浮到桌面上方；加一层投影和毡布拉开层次。 */
+.room-page.is-landscape.has-game .topbar-actions {
+  pointer-events: auto;
+}
+
+.room-page.is-landscape.has-game .topbar-actions .btn,
+.room-page.is-landscape.has-game .topbar-actions .icon-btn {
+  box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.9);
 }
 
 .room-page.is-landscape .room-heading-title {
@@ -1018,10 +1051,20 @@
   font-size: 0.8rem;
 }
 
-.room-page.is-landscape .reconnect-banner {
-  position: static;
-  padding: 4px 12px;
+/* 断线横幅同样悬浮，不挤压牌桌高度。 */
+.room-page.is-landscape.has-game .reconnect-banner {
+  position: absolute;
+  top: max(6px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  z-index: 48;
+  transform: translateX(-50%);
+  padding: 3px 12px;
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  border-radius: 999px;
+  background: rgba(24, 18, 4, 0.92);
   font-size: 0.7rem;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .room-page.is-landscape .room-main {

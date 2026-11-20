@@ -76,9 +76,11 @@ export class ChromeView {
   setSpecs(
     specs: ChromeSpec[],
     anchors: Record<SeatPosition, { x: number; y: number }>,
+    width: number,
+    height: number,
     compact = false,
   ): void {
-    const signature = `${JSON.stringify(specs)}|${JSON.stringify(anchors)}|${compact}`;
+    const signature = `${JSON.stringify(specs)}|${JSON.stringify(anchors)}|${width}x${height}|${compact}`;
     if (signature === this.signature) return;
     this.signature = signature;
     this.clear();
@@ -86,15 +88,43 @@ export class ChromeView {
     const selfSpecs = specs.filter((spec) => spec.placement === 'self');
 
     if (compact) {
-      // 紧凑横屏：规则信息不再压在桌面左上角，收到左下角与自己座位挂件叠成一组。
-      // 自己头像半径固定 16；徽标行贴在头像上方，与昵称/张数同一列。
-      const dockTop = anchors.self.y - 16;
-      this.placeRow([...tableSpecs, ...selfSpecs], 10, dockTop - 20, 'left');
+      // 紧凑横屏左侧被座位和自己挂件占满，再放徽标一定压到桌沿；
+      // 改放右侧空白区，右缘留出「桌沿 28 + 10」的安全边距。
+      this.placeColumn(
+        [...tableSpecs, ...selfSpecs],
+        width - 38,
+        height * 0.58 + 12,
+        'right',
+      );
       return;
     }
 
     this.placeRow(tableSpecs, anchors.self.x, 48);
     this.placeRow(selfSpecs, anchors.self.x, anchors.self.y - 96);
+  }
+
+  /** 紧凑布局用：同一列自下而上叠放，最后一张贴着 bottomY；x 为对齐边。 */
+  private placeColumn(
+    specs: ChromeSpec[],
+    x: number,
+    bottomY: number,
+    align: 'left' | 'right' = 'left',
+  ): void {
+    if (specs.length === 0) return;
+    const chipHeight = 24;
+    const gap = 4;
+    let cursor = bottomY;
+
+    for (let index = specs.length - 1; index >= 0; index -= 1) {
+      const spec = specs[index];
+      if (!spec) continue;
+      const chip = this.createChip(spec);
+      const centerX = align === 'left' ? x + chip.width / 2 : x - chip.width / 2;
+      chip.container.setPosition(centerX, cursor - chipHeight / 2);
+      cursor -= chipHeight + gap;
+      this.container.add(chip.container);
+      this.chips.push(chip);
+    }
   }
 
   private placeRow(
@@ -160,6 +190,33 @@ export class ChromeView {
 interface GroupEntry {
   signature: string;
   container: Phaser.GameObjects.Container;
+  /** 赢家金边；显隐单独更新，避免同一手牌被重建而重复飞入。 */
+  border: Phaser.GameObjects.Graphics;
+  frame: { width: number; height: number } | null;
+  winner: boolean;
+}
+
+/** 紧凑横屏的出牌缩略尺寸：比手牌小一档，但要能看清牌面。 */
+const COMPACT_PLAYED_SCALE = 0.72;
+const COMPACT_PLAYED_MAX_SHOWN = 6;
+const PLAYED_MAX_SHOWN = 8;
+
+/** 出牌组的牌面尺寸：落位宽度和实际绘制必须同源，否则贴边会算错。 */
+function playedCardMetrics(metrics: Metrics): {
+  cardW: number;
+  cardH: number;
+  gap: number;
+  maxShown: number;
+} {
+  const cardW = Math.round(
+    metrics.cardW * (metrics.compact ? COMPACT_PLAYED_SCALE : 0.62),
+  );
+  return {
+    cardW,
+    cardH: Math.round(cardW * 1.5),
+    gap: Math.round(cardW * 0.45),
+    maxShown: metrics.compact ? COMPACT_PLAYED_MAX_SHOWN : PLAYED_MAX_SHOWN,
+  };
 }
 
 function signatureOf(group: PlayedGroup): string {
@@ -194,7 +251,7 @@ export class PlayedView {
     const active = new Set<number>();
     const groups = played.filter((group) => group.cards.length > 0);
 
-    for (const [order, group] of groups.entries()) {
+    for (const group of groups) {
       const seat = seats.find((item) => item.index === group.seat);
       if (!seat) continue;
       active.add(group.seat);
@@ -202,7 +259,7 @@ export class PlayedView {
       const signature = signatureOf(group);
       let entry = this.groups.get(group.seat);
       const target = metrics.compact
-        ? this.compactTarget(width, height, order, groups.length)
+        ? this.compactSeatTarget(group, seat, anchors, metrics, width, height)
         : this.placeGroup(seat, anchors, metrics);
 
       if (!entry || entry.signature !== signature) {
@@ -210,19 +267,25 @@ export class PlayedView {
         const origin = metrics.compact
           ? anchors[seat.position]
           : this.originFor(seat, anchors, metrics);
-        const container = this.buildGroup(group, metrics);
-        container.setPosition(origin.x, origin.y);
-        entry = { signature, container };
+        const built = this.buildGroup(group, metrics);
+        built.container.setPosition(origin.x, origin.y);
+        entry = { signature, ...built, winner: group.winner === true };
+        this.paintWinner(entry);
         this.groups.set(group.seat, entry);
         tweenTo(
           this.scene,
-          container,
+          built.container,
           { x: target.x, y: target.y },
           THEME.motion.play,
           this.reducedMotion,
           'Cubic.easeOut',
         );
         continue;
+      }
+
+      if (entry.winner !== (group.winner === true)) {
+        entry.winner = group.winner === true;
+        this.paintWinner(entry);
       }
 
       if (this.scene.tweens.isTweening(entry.container)) continue;
@@ -285,27 +348,77 @@ export class PlayedView {
     this.groups.clear();
   }
 
-  /** 紧凑横屏：所有出牌按先后顺序排成中间一行，避免围着一圈互相压住。 */
-  private compactTarget(
+  /**
+   * 紧凑横屏：出牌贴在出牌者座位旁边，谁出的牌就在谁跟前。
+   *
+   * 中央留给「对家 + 自己」这一对对位：对家的牌偏左上、自己的牌偏右下，
+   * 对角错开，中间不再空一大块；左右两家的牌贴着各自头像放大展示。
+   */
+  private compactSeatTarget(
+    group: PlayedGroup,
+    seat: TableSeat,
+    anchors: Record<SeatPosition, { x: number; y: number }>,
+    metrics: Metrics,
     width: number,
     height: number,
-    index: number,
-    count: number,
   ): { x: number; y: number } {
-    const slot = Math.min(150, (width - 180) / Math.max(1, count));
-    return {
-      x: width / 2 + (index - (count - 1) / 2) * slot,
-      y: height * 0.41,
-    };
+    const anchor = anchors[seat.position];
+    const { cardW, cardH, gap, maxShown } = playedCardMetrics(metrics);
+    const shown = Math.min(group.cards.length, maxShown);
+    const total = cardW + gap * Math.max(0, shown - 1);
+    // 与 SeatView 紧凑头像半径、桌沿内缩保持一致。
+    const radius = 16;
+    const pad = 12;
+    const rim = 28;
+    // 左右两家的牌下移到头像文字之下，别和昵称挤在一行。
+    const sideY = anchor.y + 44;
+
+    switch (seat.position) {
+      case 'top':
+        // 对家偏左、略靠上，避开顶部的昵称与张数。
+        return {
+          x: Math.min(
+            Math.max(width * 0.38, rim + total / 2),
+            width / 2 - 62 - total / 2,
+          ),
+          y: height * 0.32,
+        };
+      case 'left':
+        return { x: anchor.x + radius + pad + total / 2, y: sideY };
+      case 'right':
+        return { x: anchor.x - radius - pad - total / 2, y: sideY };
+      case 'self':
+        // 自己的牌偏右，落在出牌按钮右上方：按钮与牌面完全错开。
+        return {
+          x: Math.min(
+            width * 0.65,
+            width - rim - total / 2,
+          ),
+          // 不超过手牌上沿，避免小屏上压到手牌。
+          y: Math.min(
+            height * 0.54,
+            height - metrics.cardH - 22 - cardH / 2 - 6,
+          ),
+        };
+    }
   }
 
-  private buildGroup(group: PlayedGroup, metrics: Metrics): Phaser.GameObjects.Container {
-    const cardW = Math.round(metrics.cardW * (metrics.compact ? 0.58 : 0.62));
-    const cardH = Math.round(cardW * 1.5);
-    const gap = Math.round(cardW * 0.45);
-    const shown = group.cards.slice(0, 8);
+  private buildGroup(
+    group: PlayedGroup,
+    metrics: Metrics,
+  ): {
+    container: Phaser.GameObjects.Container;
+    border: Phaser.GameObjects.Graphics;
+    frame: { width: number; height: number } | null;
+  } {
+    // 牌面尺寸与 compactSeatTarget 同源；紧凑横屏最多展开 6 张，再多用 +n 收口。
+    const { cardW, cardH, gap, maxShown } = playedCardMetrics(metrics);
+    const shown = group.cards.slice(0, maxShown);
     const total = cardW + gap * Math.max(0, shown.length - 1);
     const container = this.scene.add.container(0, 0).setDepth(26);
+    // 金边垫在牌下面，显隐由 paintWinner 控制。
+    const border = this.scene.add.graphics();
+    container.add(border);
 
     shown.forEach((card, index) => {
       const image = this.scene.add
@@ -325,7 +438,26 @@ export class PlayedView {
       container.add(more);
     }
 
-    return container;
+    return { container, border, frame: shown.length > 0 ? { width: total, height: cardH } : null };
+  }
+
+  /** 本轮最大的一手：整组牌描一圈金边并垫一层淡金底。 */
+  private paintWinner(entry: GroupEntry): void {
+    entry.border.clear();
+    if (!entry.winner || !entry.frame) return;
+
+    const pad = 5;
+    const left = -entry.frame.width / 2 - pad;
+    const top = -entry.frame.height / 2 - pad;
+    const width = entry.frame.width + pad * 2;
+    const height = entry.frame.height + pad * 2;
+
+    entry.border.fillStyle(toColor(this.theme.color.gold.base), 0.16);
+    entry.border.fillRoundedRect(left, top, width, height, 8);
+    entry.border.lineStyle(5, toColor(this.theme.color.gold.base), 0.22);
+    entry.border.strokeRoundedRect(left, top, width, height, 8);
+    entry.border.lineStyle(2, toColor(this.theme.color.gold.light), 0.95);
+    entry.border.strokeRoundedRect(left, top, width, height, 8);
   }
 
   private placeGroup(

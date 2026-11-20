@@ -12,6 +12,7 @@ import { BOT_ACTION_DELAY_MS, nextBotMessage, type BotMessage, type BotRoomSnaps
 import type { Env } from './env';
 import { ruleRuntime } from './game/rules';
 import type { RuleActionContext } from './game/rules/types';
+import { testDeckFor } from './testDecks';
 import {
   json,
   normalizeRoomCode,
@@ -26,6 +27,25 @@ const CHAT_COOLDOWN_MS = 700;
 
 /** 测试模式：房间名为 test 时用机器人补满座位，机器人只发送与真人等效的指令。 */
 const TEST_ROOM_NAME = 'test';
+/**
+ * 测试房间的固定发牌种子。
+ *
+ * 同样的验收脚本每局都拿到同一副牌，截图内容才能稳定复现；
+ * 需要换一副牌调试时改这里即可。
+ */
+const TEST_DEAL_SEED = 12345;
+
+/** mulberry32：小而稳的确定性伪随机数，用于测试房间发牌。 */
+function seededRandom(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state |= 0;
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 const BOT_NAMES = ['人机 A', '人机 B', '人机 C'];
 
 /** 规则通用配置；后续接后台时改成从 env / 配置服务读取。 */
@@ -99,6 +119,8 @@ export class RoomDO {
   private readonly env: Env;
   private room: StoredRoom | null = null;
   private readonly lastChatAt = new Map<string, number>();
+  /** 测试房间的确定性发牌随机源；普通房间为 null，走 Math.random。 */
+  private dealRandom: (() => number) | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     this.ctx = ctx;
@@ -200,13 +222,17 @@ export class RoomDO {
         const names = room.seats.map((seat) => seat?.name ?? '玩家');
         room.status = 'playing';
         room.botPaused = false;
+        // 测试房间直接用固定牌序（没有配置时退回固定种子洗牌），保证验收截图可复现。
+        const testRoom = isTestRoomName(room.name);
+        this.dealRandom = testRoom ? seededRandom(TEST_DEAL_SEED) : null;
         room.game = {
           ruleId: room.ruleId,
           state: runtime.create({
             names,
             now: Date.now(),
-            random: Math.random,
+            random: this.dealRandom ?? Math.random,
             config: RULE_CONFIG,
+            deck: testRoom ? testDeckFor(room.ruleId) ?? undefined : undefined,
           }),
         };
         await this.commit();
@@ -526,7 +552,8 @@ export class RoomDO {
   private ruleCtx(): RuleActionContext {
     return {
       now: Date.now(),
-      random: Math.random,
+      // 测试房间沿用同一个种子流，重发牌与超时自动甩 3 也保持可复现。
+      random: this.dealRandom ?? Math.random,
       config: RULE_CONFIG,
     };
   }

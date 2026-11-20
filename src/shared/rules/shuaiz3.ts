@@ -32,6 +32,8 @@ export interface Shuaiz3TrickResultView {
   winnerSeat: number;
   points: number;
   cards: Card[];
+  /** 本轮各家的出牌；本轮结束后仍留在桌面上，直到下一轮领出。 */
+  plays: Shuaiz3Play[];
 }
 
 export interface Shuaiz3Result {

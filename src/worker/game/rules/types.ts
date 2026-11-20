@@ -1,3 +1,4 @@
+import type { Card } from '../../../shared/cards';
 import type { GameAction, PublicGameView, RuleMetaInfo } from '../../../shared/rules/types';
 
 /** 规则运行时需要的可配置项；后续接后台时由房间层注入。 */
@@ -12,6 +13,13 @@ export interface RuleCreateContext {
   now: number;
   random: () => number;
   config: RuleConfig;
+  /**
+   * 固定牌序（按发牌顺序，长度等于整副牌）。
+   *
+   * 只有测试房间会注入：同一份验收脚本每次都拿到同一副牌，截图场景才能稳定复现。
+   * 普通房间不传，规则照常洗牌。
+   */
+  deck?: Card[];
 }
 
 export interface RuleActionContext {

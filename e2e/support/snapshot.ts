@@ -26,6 +26,16 @@ export interface SnapshotButton {
   h: number;
 }
 
+/** 结算面板按钮（再来一局 / 离开牌桌）。 */
+export interface SnapshotOverlayButton {
+  key: 'restart' | 'leave';
+  label: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface SnapshotCenter {
   kind?: string;
   trumpSuit?: string | null;
@@ -48,6 +58,10 @@ export interface TableSnapshot {
   hand: SnapshotCard[];
   cards: SnapshotCardRect[];
   buttons: SnapshotButton[];
+  /** 桌面上的出牌分组：seat 是谁出的，winner 是本轮最大的一手。 */
+  played: { seat: number; cards: SnapshotCard[]; winner?: boolean }[];
+  /** 结算面板按钮；未显示结算时为空。 */
+  overlayButtons: SnapshotOverlayButton[];
   center: SnapshotCenter;
   width: number;
   height: number;

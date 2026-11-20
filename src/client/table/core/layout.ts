@@ -31,13 +31,16 @@ export function computeSeatAnchors(
 ): SeatAnchors {
   if (metrics.compact) {
     // 紧凑布局：对手贴顶部/两侧，自己缩成左下角的小挂件，把中间整块让给牌局。
-    const top = { x: width / 2, y: 28 };
+    // 顶部座位要完整落在桌面内：桌沿内缩 28px，头像半径 16。
+    const top = { x: width / 2, y: 46 };
     // 左右座位略高一点，把左下角留给「自己信息 + 规则徽标」这一组。
     const left = { x: 56, y: height * 0.3 };
     const right = { x: width - 56, y: height * 0.3 };
+    // 自己和手牌同一水平中心；手牌层级 40 高于座位 20，牌多时牌会压住挂件。
+    // x 取 48：头像 32~64，回合金环 28~68，刚好落在 28px 桌沿内缩之内。
     const self = {
-      x: 34,
-      y: height - metrics.cardH - metrics.gutter - 34,
+      x: 48,
+      y: height - metrics.cardH / 2 - 22,
     };
     return {
       self,

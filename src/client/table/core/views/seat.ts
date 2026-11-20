@@ -162,23 +162,24 @@ export class SeatView {
 
   /** 自己：左下角横排挂件，避免和手牌、中央区抢位置。 */
   private renderDock(seat: TableSeat, radius: number): void {
+    const rawName = seat.name.trim() || '玩家';
     this.nameText
       .setFontSize(12)
       .setOrigin(0, 0.5)
-      .setText(shortName(seat.name))
-      .setPosition(radius + 7, -8);
+      // 挂件右侧就是手牌（12 张时牌架左缘约 x=130），文字必须收在这个宽度内。
+      .setText(rawName.length > 4 ? `${rawName.slice(0, 4)}…` : rawName)
+      .setPosition(radius + 5, -8);
 
     const meta = seat.score === undefined
-      ? `${seat.handCount} 张`
-      : `${seat.handCount} 张 · ${seat.score} 分`;
+      ? `${seat.handCount}张`
+      : `${seat.handCount}张 · ${seat.score}分`;
     this.countText
-      .setFontSize(11)
+      .setFontSize(10)
       .setOrigin(0, 0.5)
-      .setText(seat.badge ? `${seat.badge} · ${meta}` : meta)
-      .setPosition(radius + 7, 8);
+      .setText(meta)
+      .setPosition(radius + 5, 8);
     this.scoreText.setVisible(false);
-    // 挂件没有空间放独立角标，直接并进第二行文字。
-    this.badgeText.setVisible(false);
+    this.layoutBadge(seat, radius * 0.55, -radius - 8, 18);
   }
 
   private renderFull(seat: TableSeat, radius: number): void {

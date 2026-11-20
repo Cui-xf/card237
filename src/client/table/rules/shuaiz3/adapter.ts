@@ -1,5 +1,4 @@
 import type { Card, StandardSuit } from '../../../../shared/cards';
-import { SUIT_SYMBOL } from '../../../../shared/cards';
 import type { PublicSeat } from '../../../../shared/protocol';
 import type {
   Shuaiz3PublicData,
@@ -144,64 +143,16 @@ function buildResult(
 }
 
 function statusText(
-  view: Shuaiz3View,
   data: Shuaiz3PublicData,
-  seats: (PublicSeat | null)[],
   mySeat: number | null,
-  canDeclareNow: boolean,
 ): { text: string; strong: boolean } {
-  const phase = data.phase;
-  const trumpLabel = data.trumpSuit ? SUIT_SYMBOL[data.trumpSuit] : '未定';
-  const dealerName = seatName(seats, data.dealerSeat);
-  const currentName = seatName(seats, view.currentSeat);
-  const isMyTurn = mySeat !== null && view.currentSeat === mySeat;
-
-  if (phase === 'dealing' || phase === 'declaring') {
-    if (mySeat === null) return { text: '你正在旁观这局牌。', strong: false };
-    if (data.dealerSeat !== null) {
-      return {
-        text: `${dealerName} 已甩出 3，主牌为 ${trumpLabel}`,
-        strong: true,
-      };
-    }
-    if (data.you.declined) {
-      return { text: '你已取消甩牌，等待其他玩家', strong: true };
-    }
-    if (canDeclareNow) {
-      return {
-        text:
-          phase === 'dealing'
-            ? '摸到 3 了，直接点上方按钮甩出'
-            : '点上方按钮甩 3，或取消甩牌',
-        strong: false,
-      };
-    }
-    if (phase === 'declaring') {
-      return { text: '等待持 3 的玩家甩 3（超时后系统自动甩）', strong: true };
-    }
-    return { text: '摸到 3 之后可以甩出', strong: false };
+  if (mySeat === null) return { text: '你正在旁观这局牌。', strong: false };
+  if (data.phase === 'finished') {
+    return { text: '本局结束，等待房主开启下一局。', strong: false };
   }
-
-  if (phase === 'returning') {
-    if (mySeat === null) return { text: '你正在旁观这局牌。', strong: false };
-    if (!data.you.mustReturnBottom) {
-      return { text: '等待庄家还底…', strong: true };
-    }
-    return { text: '请选择 6 张非 5 / 10 / K 的牌', strong: false };
-  }
-
-  if (phase === 'playing') {
-    if (mySeat === null) return { text: '你正在旁观这局牌。', strong: false };
-    if (!isMyTurn) {
-      return { text: `等待 ${currentName} 出牌…`, strong: true };
-    }
-    if (!data.trick) {
-      return { text: '选择同花色的牌领出，可一次出多张', strong: false };
-    }
-    return { text: `本轮需要出 ${data.trick.count} 张`, strong: false };
-  }
-
-  return { text: '本局结束，等待房主开启下一局。', strong: false };
+  // 发牌 / 甩 3 / 还底 / 出牌阶段不再挂常驻文案：阶段状态由中央环、
+  // 主牌徽标和按钮本身表达，只有选牌不合法时才显示校验反馈。
+  return { text: '', strong: false };
 }
 
 export function buildShuaiz3Model(
@@ -217,7 +168,7 @@ export function buildShuaiz3Model(
   const dealerSeat = data.dealerSeat;
   const canDeclareNow =
     mySeat !== null && dealerSeat === null && !data.you.declined && threes.length > 0;
-  const status = statusText(view, data, seats, mySeat, canDeclareNow);
+  const status = statusText(data, mySeat);
 
   const kind: Shuaiz3Center['kind'] =
     data.phase === 'dealing'
@@ -236,6 +187,14 @@ export function buildShuaiz3Model(
       : data.phase === 'returning'
         ? secondsLeft(data.returnDeadline, ctx.now)
         : 0;
+
+  // 本轮出牌一直留在桌上：所有人出完后 winner 那一手描金边，
+  // 直到下一轮真正有人领出，才换成新一轮的牌。
+  const current = data.trick?.plays ?? null;
+  const settled =
+    current === null && data.phase === 'playing' ? (data.lastTrick?.plays ?? null) : null;
+  const displayedPlays = current ?? settled ?? [];
+  const winnerSeat = current === null && settled ? data.lastTrick?.winnerSeat ?? null : null;
 
   const center: Shuaiz3Center = {
     kind,
@@ -271,9 +230,10 @@ export function buildShuaiz3Model(
       data.phase === 'returning' && data.you.mustReturnBottom
         ? data.bottomCards.map((card) => card.id)
         : [],
-    played: (data.trick?.plays ?? []).map((play) => ({
+    played: displayedPlays.map((play) => ({
       seat: play.seat,
       cards: play.cards.map(toTableCard),
+      winner: play.seat === winnerSeat,
     })),
     chrome: [],
     statusText: status.text,

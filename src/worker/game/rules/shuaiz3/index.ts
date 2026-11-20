@@ -134,8 +134,9 @@ function error(message: string): { result: { ok: false; error: string } } {
 export const shuaiz3Rule: RuleRuntime<Shuaiz3State> = {
   meta: RULE_META.shuaiz3,
 
-  create({ names, now, random }) {
-    return createGame(names, now, random);
+  create({ names, now, random, deck }) {
+    // deck 只由测试房间注入，普通房间为 undefined，照常洗牌。
+    return createGame(names, now, random, deck);
   },
 
   apply(state, seat, action: GameAction, ctx) {

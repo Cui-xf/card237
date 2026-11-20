@@ -116,6 +116,11 @@ export class TableScene extends Phaser.Scene {
       if (action.type === 'declareTrump' && typeof action.cardId === 'string') {
         this.hand?.flashCard(action.cardId);
       }
+      // 出牌 / 还底后立即清空选中：甩牌触发打小时，服务端只打出其中最小的一张，
+      // 其余牌还留在手里，继续选中会和下一次选牌混在一起。
+      if (action.type === 'play' || action.type === 'returnBottom') {
+        this.clearSelection();
+      }
       this.sceneData.onAction(action);
     });
     this.playedView = new PlayedView(this, THEME);
@@ -213,6 +218,12 @@ export class TableScene extends Phaser.Scene {
       hand: model.hand.map((card) => ({ ...card })),
       cards: this.hand?.debugRects() ?? [],
       buttons: this.actionBar?.debugRects(this.actions) ?? [],
+      played: model.played.map((group) => ({
+        seat: group.seat,
+        cards: group.cards.map((card) => ({ ...card })),
+        winner: group.winner,
+      })),
+      overlayButtons: this.resultView?.debugRects() ?? [],
       center: model.center,
       width: this.cssWidth(),
       height: this.cssHeight(),
@@ -260,7 +271,7 @@ export class TableScene extends Phaser.Scene {
     this.resultView?.hide();
     for (const view of this.seatViews.values()) view.destroy();
     this.seatViews.clear();
-    this.chrome?.setSpecs([], this.anchors);
+    this.chrome?.setSpecs([], this.anchors, this.cssWidth(), this.cssHeight());
     return false;
   }
 
@@ -331,7 +342,7 @@ export class TableScene extends Phaser.Scene {
       this.seatViews.delete(index);
     }
 
-    this.chrome?.setSpecs(model.chrome, this.anchors, this.metrics.compact);
+    this.chrome?.setSpecs(model.chrome, this.anchors, width, height, this.metrics.compact);
     this.playedView?.update(
       model.played,
       model.seats,
@@ -409,8 +420,9 @@ export class TableScene extends Phaser.Scene {
         this.metrics.compact &&
         !this.selectionHint &&
         (model.phase === 'declaring' || model.phase === 'returning');
+      // 出牌阶段不挂常驻提示：玩法返回空状态时整行隐藏，不留空白占位。
       this.statusView
-        .setVisible(!centerCarriesPhase)
+        .setVisible(Boolean(text) && !centerCarriesPhase)
         .setText(text)
         .setColor(strong ? THEME.color.gold.light : THEME.color.mint)
         .setWordWrapWidth(width * 0.6)
@@ -423,6 +435,11 @@ export class TableScene extends Phaser.Scene {
   }
 
   private handleEscape(): void {
+    this.clearSelection();
+  }
+
+  /** 清空选牌并同步按钮/提示；动作提交后也走这里，避免残留选中。 */
+  private clearSelection(): void {
     if (this.selected.size === 0) return;
     this.selected.clear();
     this.hand?.setSelected(this.selected);
