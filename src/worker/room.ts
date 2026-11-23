@@ -308,6 +308,8 @@ export class RoomDO {
         }
 
         room.seats[seatIndex] = null;
+        // 最后一位真人离开后清空机器人，避免空房间被机器人自动开局。
+        this.clearBotsIfNoHumans(room);
         if (room.hostId === playerId) {
           room.hostId = this.firstOccupiedPlayerId(room);
         }
@@ -335,6 +337,41 @@ export class RoomDO {
         for (const seat of room.seats) {
           if (seat) seat.ready = false;
         }
+        await this.commit();
+        return true;
+      }
+
+      case 'addBot': {
+        if (room.hostId !== playerId) return this.fail(ws, '只有房主可以添加机器人');
+        if (room.status !== 'waiting') return this.fail(ws, '牌局开始后不能添加机器人');
+        if (!ruleRuntime(room.ruleId)?.botAction) {
+          return this.fail(ws, '当前规则暂不支持机器人');
+        }
+        const emptySeat = room.seats.findIndex((seat) => seat === null);
+        if (emptySeat === -1) return this.fail(ws, '座位已满，无法再添加机器人');
+
+        this.fillBotSeat(room, emptySeat);
+        await this.commit();
+        return true;
+      }
+
+      case 'removeBot': {
+        if (room.hostId !== playerId) return this.fail(ws, '只有房主可以移除机器人');
+        if (room.status !== 'waiting') return this.fail(ws, '牌局开始后不能移除机器人');
+
+        const seatIndex = message.seat;
+        if (
+          typeof seatIndex !== 'number' ||
+          !Number.isInteger(seatIndex) ||
+          seatIndex < 0 ||
+          seatIndex >= room.seats.length
+        ) {
+          return this.fail(ws, '座位号无效');
+        }
+        const target = room.seats[seatIndex];
+        if (!target || !target.bot) return this.fail(ws, '该座位不是机器人');
+
+        room.seats[seatIndex] = null;
         await this.commit();
         return true;
       }
@@ -568,22 +605,44 @@ export class RoomDO {
     if (!isTestRoomName(room.name)) return;
     if (!ruleRuntime(room.ruleId)?.botAction) return;
 
-    const now = Date.now();
-    let botIndex = 0;
-
     for (let index = 0; index < room.seats.length; index += 1) {
       if (room.seats[index]) continue;
-
-      room.seats[index] = {
-        playerId: `bot-${room.id}-${index}`,
-        name: BOT_NAMES[botIndex % BOT_NAMES.length],
-        ready: false,
-        joinedAt: now,
-        disconnectedAt: null,
-        bot: true,
-      };
-      botIndex += 1;
+      this.fillBotSeat(room, index);
     }
+  }
+
+  /** 给指定空座补一个机器人；名字优先使用还没被占用的人机 A/B/C。 */
+  private fillBotSeat(room: StoredRoom, seatIndex: number): void {
+    room.seats[seatIndex] = {
+      playerId: `bot-${room.id}-${seatIndex}`,
+      name: this.nextBotName(room),
+      ready: false,
+      joinedAt: Date.now(),
+      disconnectedAt: null,
+      bot: true,
+    };
+  }
+
+  private nextBotName(room: StoredRoom): string {
+    const used = new Set(
+      room.seats.filter((seat): seat is SeatState => seat !== null).map((seat) => seat.name),
+    );
+    for (const name of BOT_NAMES) {
+      if (!used.has(name)) return name;
+    }
+    let index = BOT_NAMES.length + 1;
+    while (used.has(`人机 ${index}`)) index += 1;
+    return `人机 ${index}`;
+  }
+
+  /** 房间里已经没有真人时清空所有机器人，返回是否发生变化。 */
+  private clearBotsIfNoHumans(room: StoredRoom): boolean {
+    if (room.seats.some((seat) => seat !== null && !seat.bot)) return false;
+    if (!room.seats.some((seat) => seat !== null)) return false;
+    for (let index = 0; index < room.seats.length; index += 1) {
+      room.seats[index] = null;
+    }
+    return true;
   }
 
   private botSnapshot(room: StoredRoom): BotRoomSnapshot {
@@ -685,8 +744,11 @@ export class RoomDO {
       changed = true;
     }
 
-    if (changed && room.hostId && !room.seats.some((seat) => seat?.playerId === room.hostId)) {
-      room.hostId = this.firstOccupiedPlayerId(room);
+    if (changed) {
+      this.clearBotsIfNoHumans(room);
+      if (room.hostId && !room.seats.some((seat) => seat?.playerId === room.hostId)) {
+        room.hostId = this.firstOccupiedPlayerId(room);
+      }
     }
 
     return changed;
@@ -726,6 +788,7 @@ export class RoomDO {
             ready: seat.ready,
             online: online.has(seat.playerId),
             isHost: room.hostId === seat.playerId,
+            bot: seat.bot === true,
             joinedAt: seat.joinedAt,
           }
         : null,
@@ -774,8 +837,9 @@ export class RoomDO {
     return index === -1 ? null : index;
   }
 
+  /** 房主顺位只考虑真人：机器人不会成为新房主。 */
   private firstOccupiedPlayerId(room: StoredRoom): string | null {
-    return room.seats.find((seat) => seat !== null)?.playerId ?? null;
+    return room.seats.find((seat) => seat !== null && !seat.bot)?.playerId ?? null;
   }
 
   private roomMeta(): RoomMeta {

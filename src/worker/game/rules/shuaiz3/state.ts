@@ -55,6 +55,8 @@ export interface Shuaiz3State {
   currentSeat: number | null;
   trick: Shuaiz3Trick | null;
   lastTrick: Shuaiz3TrickResultView | null;
+  /** 已经打出的牌（含历史轮次），机器人用它记牌；不进入公开视图。 */
+  playedCards: Card[];
   /** 个人分数，实时公开；队伍总分只在结算时计算。 */
   scores: number[];
   turnStartedAt: number;

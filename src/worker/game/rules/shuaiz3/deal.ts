@@ -74,6 +74,7 @@ function baseState(names: string[]): Shuaiz3State {
     currentSeat: null,
     trick: null,
     lastTrick: null,
+    playedCards: [],
     scores: Array.from({ length: SEAT_COUNT }, () => 0),
     turnStartedAt: 0,
     result: null,

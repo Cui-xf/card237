@@ -22,6 +22,8 @@ export interface PublicSeat {
   ready: boolean;
   online: boolean;
   isHost: boolean;
+  /** 机器人座位：由房主添加，没有真人连接，始终在线并自动准备。 */
+  bot: boolean;
   joinedAt: number;
 }
 
@@ -79,6 +81,8 @@ export type ClientMessage =
   | { type: 'chat'; text: string }
   | { type: 'leave' }
   | { type: 'restart' }
+  | { type: 'addBot' }
+  | { type: 'removeBot'; seat: number }
   | { type: 'ping'; t: number };
 
 export type ServerMessage =

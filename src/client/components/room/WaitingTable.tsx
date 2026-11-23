@@ -1,4 +1,4 @@
-import { Check, Play, X } from 'lucide-react';
+import { Bot, Check, Play, UserMinus, X } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { PublicSeat, RoomStatus } from '../../../shared/protocol';
 import { initials } from '../../lib/format';
@@ -13,6 +13,8 @@ interface WaitingTableProps {
   isHost: boolean;
   onReady: (ready: boolean) => void;
   onStart: () => void;
+  onAddBot: () => void;
+  onRemoveBot: (seat: number) => void;
 }
 
 /**
@@ -30,9 +32,12 @@ export function WaitingTable({
   isHost,
   onReady,
   onStart,
+  onAddBot,
+  onRemoveBot,
 }: WaitingTableProps) {
   const capacity = seats.length;
   const occupied = seats.filter((seat) => seat !== null).length;
+  const emptyCount = capacity - occupied;
   const mySelf = mySeat !== null ? seats[mySeat] : null;
 
   return (
@@ -62,12 +67,24 @@ export function WaitingTable({
               .filter(Boolean)
               .join(' ')}
           >
+            {seat?.bot && isHost && (
+              <button
+                type="button"
+                className="waiting-remove"
+                onClick={() => onRemoveBot(index)}
+                aria-label={`移除 ${seat.name}`}
+                title="移除机器人"
+              >
+                <UserMinus size={14} aria-hidden="true" />
+              </button>
+            )}
             <span className="waiting-avatar" aria-hidden="true">
               {seat ? initials(seat.name) : '+'}
             </span>
             <span className="waiting-name">{seat?.name ?? '等待玩家'}</span>
             <span className="waiting-tags">
               {seat?.isHost && <span className="waiting-tag">房主</span>}
+              {seat?.bot && <span className="waiting-tag is-bot">机器人</span>}
               {index === mySeat && <span className="waiting-tag">你</span>}
               {seat &&
                 (seat.online ? (
@@ -87,6 +104,13 @@ export function WaitingTable({
 
         {mySeat !== null ? (
           <>
+            {isHost && emptyCount > 0 && (
+              <button type="button" className="btn btn-ghost" onClick={onAddBot}>
+                <Bot size={17} aria-hidden="true" />
+                添加机器人
+              </button>
+            )}
+
             <button
               type="button"
               className={`btn ${mySelf?.ready ? 'btn-ghost' : 'btn-gold'}`}

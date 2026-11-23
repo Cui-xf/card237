@@ -172,6 +172,7 @@ export function leadTrick(
   }
 
   removeCards(state.hands[seat], played);
+  state.playedCards.push(...played);
   state.trick = {
     leadSeat: seat,
     leadSuit: leadGroup,
@@ -226,6 +227,7 @@ export function followTrick(
   }
 
   removeCards(hand, cards);
+  state.playedCards.push(...cards);
   trick.plays.push({ seat, cards });
   addLog(state, 'play', `${state.names[seat]} 出牌 ${formatCards(cards)}`, now, seat);
 

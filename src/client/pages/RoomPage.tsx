@@ -235,7 +235,11 @@ export function RoomPage({
     state.you.isHost && occupied === capacity && readyCount === capacity && allOnline;
 
   let waitingHint = '';
-  if (occupied < capacity) waitingHint = `还差 ${capacity - occupied} 位玩家`;
+  if (occupied < capacity) {
+    waitingHint = `还差 ${capacity - occupied} 位玩家${
+      state.you.isHost ? '，可添加机器人补位' : ''
+    }`;
+  }
   else if (readyCount < capacity) waitingHint = `还有 ${capacity - readyCount} 人未准备`;
   else if (!allOnline) waitingHint = '有玩家离线，等待重连';
   else if (!state.you.isHost) waitingHint = '全员已准备，等待房主开始';
@@ -335,6 +339,8 @@ export function RoomPage({
                 isHost={state.you.isHost}
                 onReady={(ready) => sendChecked({ type: 'ready', ready })}
                 onStart={() => sendChecked({ type: 'start' })}
+                onAddBot={() => sendChecked({ type: 'addBot' })}
+                onRemoveBot={(seat) => sendChecked({ type: 'removeBot', seat })}
               />
             )}
           </section>
