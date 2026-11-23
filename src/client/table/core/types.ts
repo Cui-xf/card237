@@ -44,9 +44,18 @@ export interface ActionSlot {
   rank?: Rank;
 }
 
+/** 甩牌被打小：先完整亮出尝试的牌，再收起多余的大牌。 */
+export interface PlayedAttempt {
+  cards: TableCard[];
+  /** 完整亮牌至少保持的时长（毫秒），由规则提供。 */
+  holdMs: number;
+}
+
 export interface PlayedGroup {
   seat: number;
   cards: TableCard[];
+  /** 打小亮牌信息；存在时先展示 `attempted.cards`，到时再收回多余的大牌。 */
+  attempted?: PlayedAttempt;
   /** 本轮最大的一手：整组牌描金边，兼作「下一轮由他领出」的提示。 */
   winner?: boolean;
 }

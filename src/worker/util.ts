@@ -15,10 +15,6 @@ export function sanitizeRoomName(input: unknown): string {
   return sanitizeText(input, 24) || '未命名牌桌';
 }
 
-export function sanitizeChat(input: unknown): string {
-  return sanitizeText(input, 120);
-}
-
 export function normalizeRoomCode(input: unknown): string | null {
   if (typeof input !== 'string') return null;
   const code = input.trim().toUpperCase();

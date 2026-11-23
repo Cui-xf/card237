@@ -25,6 +25,12 @@ export interface Shuaiz3TrickView {
   count: number;
   /** 是否触发过打小。 */
   reduced: boolean;
+  /**
+   * 甩牌被打小时，玩家原本想一次打出的全部牌。
+   *
+   * 客户端据此先完整亮出这手牌，动效结束后再收起多余的大牌、只留下实际打出的小牌。
+   */
+  attemptedCards: Card[];
   plays: Shuaiz3Play[];
 }
 
@@ -99,3 +105,10 @@ export const SHUAIZ3_DEAL_INTERVAL_MS = 90;
 export const SHUAIZ3_DECLARE_TIMEOUT_MS = 20_000;
 export const SHUAIZ3_RETURN_TIMEOUT_MS = 60_000;
 export const SHUAIZ3_SCORE_THRESHOLD = 60;
+/**
+ * 打小后的亮牌静场时间。
+ *
+ * 服务端在这段时间内暂停出牌，客户端完整亮出被退回的大牌，
+ * 动效结束后才收起大牌、继续跟牌。至少 3 秒，方便场上所有人看清。
+ */
+export const SHUAIZ3_REDUCE_REVEAL_MS = 3_000;

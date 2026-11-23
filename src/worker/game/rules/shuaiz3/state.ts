@@ -16,6 +16,8 @@ export interface Shuaiz3Trick {
   count: number;
   /** 是否因打小降为 1 张。 */
   reduced: boolean;
+  /** 被打小前原本想一次打出的全部牌；客户端在静场期间完整亮出。 */
+  attemptedCards: Card[];
   /** 按出牌顺序保存，用于并列时的「先出者大」。 */
   plays: Shuaiz3Play[];
 }
@@ -55,6 +57,12 @@ export interface Shuaiz3State {
   currentSeat: number | null;
   trick: Shuaiz3Trick | null;
   lastTrick: Shuaiz3TrickResultView | null;
+  /**
+   * 打小亮牌的结束时间；期间 `currentSeat` 为 null，所有玩家都不能出牌。
+   *
+   * 让所有人先看清被退回的大牌，动效结束后才继续跟牌。
+   */
+  reduceRevealUntil: number | null;
   /** 已经打出的牌（含历史轮次），机器人用它记牌；不进入公开视图。 */
   playedCards: Card[];
   /** 个人分数，实时公开；队伍总分只在结算时计算。 */

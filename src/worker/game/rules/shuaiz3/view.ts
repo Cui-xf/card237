@@ -50,6 +50,7 @@ export function buildView(state: Shuaiz3State, viewerSeat: number | null): Shuai
         leadSuit: state.trick.leadSuit,
         count: state.trick.count,
         reduced: state.trick.reduced,
+        attemptedCards: [...state.trick.attemptedCards],
         plays: state.trick.plays.map((play) => ({ seat: play.seat, cards: [...play.cards] })),
       }
     : null;

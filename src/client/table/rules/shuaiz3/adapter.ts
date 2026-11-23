@@ -5,6 +5,7 @@ import type {
   Shuaiz3Team,
   SuitGroup,
 } from '../../../../shared/rules/shuaiz3';
+import { SHUAIZ3_REDUCE_REVEAL_MS } from '../../../../shared/rules/shuaiz3';
 import type { Shuaiz3View } from '../../../../shared/rules/types';
 import type { BoardContext } from '../../core/types';
 import type {
@@ -196,6 +197,14 @@ export function buildShuaiz3Model(
   const displayedPlays = current ?? settled ?? [];
   const winnerSeat = current === null && settled ? data.lastTrick?.winnerSeat ?? null : null;
 
+  // 打小亮牌只在「刚领出、还没人跟牌」时展示，和服端静场时间一致。
+  const attempted =
+    data.trick?.reduced === true &&
+    data.trick.plays.length === 1 &&
+    data.trick.attemptedCards.length > 1
+      ? data.trick.attemptedCards.map(toTableCard)
+      : null;
+
   const center: Shuaiz3Center = {
     kind,
     revealed,
@@ -233,6 +242,10 @@ export function buildShuaiz3Model(
     played: displayedPlays.map((play) => ({
       seat: play.seat,
       cards: play.cards.map(toTableCard),
+      attempted:
+        attempted && data.trick?.leadSeat === play.seat
+          ? { cards: attempted, holdMs: SHUAIZ3_REDUCE_REVEAL_MS }
+          : undefined,
       winner: play.seat === winnerSeat,
     })),
     chrome: [],

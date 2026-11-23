@@ -1,5 +1,6 @@
 import type { Card, StandardSuit, Suit } from '../../../../shared/cards';
 import type { Shuaiz3TrickResultView } from '../../../../shared/rules/shuaiz3';
+import { SHUAIZ3_REDUCE_REVEAL_MS } from '../../../../shared/rules/shuaiz3';
 import { isTrump, pointOf, suitGroup, trickCardValue, trumpValue } from './rank';
 import { addLog, formatCards } from './log';
 import { computeResult } from './score';
@@ -178,16 +179,23 @@ export function leadTrick(
     leadSuit: leadGroup,
     count: played.length,
     reduced,
+    attemptedCards: reduced ? [...cards] : [],
     plays: [{ seat, cards: played }],
   };
-  state.currentSeat = (seat + 1) % SEAT_COUNT;
+  if (reduced) {
+    // 先亮出尝试的全部牌，静场 3 秒后再由 tick 交还出牌权。
+    state.reduceRevealUntil = now + SHUAIZ3_REDUCE_REVEAL_MS;
+    state.currentSeat = null;
+  } else {
+    state.currentSeat = (seat + 1) % SEAT_COUNT;
+  }
   state.turnStartedAt = now;
 
   if (reduced) {
     addLog(
       state,
       'trick',
-      `${state.names[seat]} 甩牌被打小，只出 ${formatCards(played)}`,
+      `${state.names[seat]} 甩牌被打小（尝试 ${formatCards(cards)}），只出 ${formatCards(played)}`,
       now,
       seat,
     );

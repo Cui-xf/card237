@@ -1,5 +1,4 @@
 import type {
-  ChatMessage,
   PublicSeat,
   RoomMeta,
   RoomStatus,
@@ -16,14 +15,11 @@ import { testDeckFor } from './testDecks';
 import {
   json,
   normalizeRoomCode,
-  sanitizeChat,
   sanitizeNickname,
   sanitizeRoomName,
 } from './util';
 
 const DISCONNECT_GRACE_MS = 60_000;
-const MAX_CHAT_MESSAGES = 60;
-const CHAT_COOLDOWN_MS = 700;
 
 /** 测试模式：房间名为 test 时用机器人补满座位，机器人只发送与真人等效的指令。 */
 const TEST_ROOM_NAME = 'test';
@@ -77,8 +73,6 @@ interface StoredRoom {
   status: RoomStatus;
   seats: (SeatState | null)[];
   game: StoredGame | null;
-  chat: ChatMessage[];
-  nextChatId: number;
   version: number;
   /** 机器人动作失败时暂停，避免同一个失败动作反复触发 alarm。 */
   botPaused?: boolean;
@@ -118,7 +112,6 @@ export class RoomDO {
   private readonly ctx: DurableObjectState;
   private readonly env: Env;
   private room: StoredRoom | null = null;
-  private readonly lastChatAt = new Map<string, number>();
   /** 测试房间的确定性发牌随机源；普通房间为 null，走 Math.random。 */
   private dealRandom: (() => number) | null = null;
 
@@ -271,30 +264,6 @@ export class RoomDO {
           this.sendError(ws, applied.result.error ?? '操作失败');
           return false;
         }
-        return true;
-      }
-
-      case 'chat': {
-        if (seatIndex === null) return this.fail(ws, '你不在牌桌座位上');
-        const text = sanitizeChat(message.text);
-        if (!text) return true;
-
-        const now = Date.now();
-        if (now - (this.lastChatAt.get(playerId) ?? 0) < CHAT_COOLDOWN_MS) return true;
-        this.lastChatAt.set(playerId, now);
-
-        room.chat.push({
-          id: room.nextChatId,
-          playerId,
-          name: room.seats[seatIndex]!.name,
-          text,
-          at: now,
-        });
-        room.nextChatId += 1;
-        if (room.chat.length > MAX_CHAT_MESSAGES) {
-          room.chat.splice(0, room.chat.length - MAX_CHAT_MESSAGES);
-        }
-        await this.commit();
         return true;
       }
 
@@ -488,8 +457,6 @@ export class RoomDO {
         status: 'waiting',
         seats: Array.from({ length: capacity }, () => null),
         game: null,
-        chat: [],
-        nextChatId: 1,
         version: 0,
       };
       await this.ctx.storage.put('room', this.room);
@@ -807,7 +774,6 @@ export class RoomDO {
       hostId: room.hostId,
       seats,
       game,
-      chat: room.chat.slice(-MAX_CHAT_MESSAGES),
       version: room.version,
       serverTime: Date.now(),
       you: {

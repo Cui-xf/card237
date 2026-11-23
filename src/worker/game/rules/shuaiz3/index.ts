@@ -293,6 +293,20 @@ export const shuaiz3Rule: RuleRuntime<Shuaiz3State> = {
         continue;
       }
 
+      // 打小亮牌结束：把出牌权交给下家。
+      if (
+        next.phase === 'playing' &&
+        next.reduceRevealUntil !== null &&
+        now >= next.reduceRevealUntil
+      ) {
+        changed = true;
+        const trick = next.trick;
+        next.reduceRevealUntil = null;
+        next.currentSeat = trick ? (trick.leadSeat + 1) % SEAT_COUNT : null;
+        next.turnStartedAt = now;
+        continue;
+      }
+
       break;
     }
 
@@ -307,6 +321,10 @@ export const shuaiz3Rule: RuleRuntime<Shuaiz3State> = {
   },
 
   nextDeadline(state) {
+    // 打小静场期间没有当前出牌人，靠这个截止时间把出牌权交还给下家。
+    if (state.phase === 'playing' && state.reduceRevealUntil !== null) {
+      return state.reduceRevealUntil;
+    }
     switch (state.phase) {
       case 'dealing':
         return state.dealEndsAt;

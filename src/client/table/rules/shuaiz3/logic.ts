@@ -108,6 +108,7 @@ export function validateShuaiz3Selection(
     leadSuit: center.trick.leadSuit,
     count: center.trick.count,
     reduced: false,
+    attemptedCards: [],
     plays: [],
   };
 

@@ -1,4 +1,4 @@
-import { Copy, LogOut, Maximize2, MessagesSquare } from 'lucide-react';
+import { Copy, LogOut, Maximize2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type { ClientMessage } from '../../shared/protocol';
 import { RULE_META } from '../../shared/rules';
@@ -7,7 +7,6 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import type { ToastTone } from '../components/Toast';
 import { GameBoard } from '../components/game/GameBoard';
 import { LoadingScreen, NameGate, RoomErrorScreen } from '../components/room/RoomScreens';
-import { RoomSidebar } from '../components/room/RoomSidebar';
 import { RotateHint } from '../components/room/RotateHint';
 import { WaitingTable } from '../components/room/WaitingTable';
 import { copyText } from '../lib/clipboard';
@@ -54,7 +53,6 @@ export function RoomPage({
   const [preflight, setPreflight] = useState<'loading' | 'ok' | 'missing'>('loading');
   const [preflightAttempt, setPreflightAttempt] = useState(0);
   const [leaveOpen, setLeaveOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rotateHintDismissed, setRotateHintDismissed] = useState(
     readRotateHintDismissed,
   );
@@ -72,19 +70,6 @@ export function RoomPage({
       setRotateHintDismissed(true);
     }
   }, [isLandscape, rotateHintDismissed]);
-
-  useEffect(() => {
-    if (!isLandscape) setSidebarOpen(false);
-  }, [isLandscape]);
-
-  useEffect(() => {
-    if (!sidebarOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSidebarOpen(false);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [sidebarOpen]);
 
   useEffect(() => {
     let alive = true;
@@ -279,17 +264,6 @@ export function RoomPage({
                 <Maximize2 size={18} aria-hidden="true" />
               </button>
             )}
-            {isLandscape && (
-              <button
-                type="button"
-                className="icon-btn chat-toggle"
-                onClick={() => setSidebarOpen((open) => !open)}
-                aria-label={sidebarOpen ? '关闭聊天与记录' : '打开聊天与记录'}
-                aria-expanded={sidebarOpen}
-              >
-                <MessagesSquare size={18} aria-hidden="true" />
-              </button>
-            )}
             <button
               type="button"
               className="btn btn-ghost topbar-btn"
@@ -344,30 +318,8 @@ export function RoomPage({
               />
             )}
           </section>
-
-          <RoomSidebar
-            roomId={state.id}
-            status={state.status}
-            seats={seats}
-            chat={state.chat}
-            log={game?.log ?? []}
-            canChat={mySeat !== null}
-            onSend={(text) => sendChecked({ type: 'chat', text })}
-            isDrawer={isLandscape}
-            isOpen={sidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-          />
         </div>
       </main>
-
-      {isLandscape && sidebarOpen && (
-        <button
-          type="button"
-          className="sidebar-scrim"
-          onClick={() => setSidebarOpen(false)}
-          aria-label="关闭聊天与记录"
-        />
-      )}
 
       {isPortraitPhone && !rotateHintDismissed && (
         <RotateHint onDismiss={dismissRotateHint} />

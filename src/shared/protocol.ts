@@ -27,14 +27,6 @@ export interface PublicSeat {
   joinedAt: number;
 }
 
-export interface ChatMessage {
-  id: number;
-  playerId: string;
-  name: string;
-  text: string;
-  at: number;
-}
-
 /** 牌局日志分类，保持规则无关，供各规则复用。 */
 export type GameLogKind =
   | 'system'
@@ -64,7 +56,6 @@ export interface RoomView {
   seats: (PublicSeat | null)[];
   /** 规则无关的信封；具体字段由 `ruleId` 决定。 */
   game: PublicGameView | null;
-  chat: ChatMessage[];
   version: number;
   serverTime: number;
   you: {
@@ -78,7 +69,6 @@ export type ClientMessage =
   | { type: 'ready'; ready: boolean }
   | { type: 'start' }
   | { type: 'game'; action: GameAction }
-  | { type: 'chat'; text: string }
   | { type: 'leave' }
   | { type: 'restart' }
   | { type: 'addBot' }
